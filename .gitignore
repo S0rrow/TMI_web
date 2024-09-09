@@ -1,0 +1,10 @@
+# logs
+logs/
+
+# test directories
+tests/
+
+# credentials
+.aws/
+credentials.yaml
+*.json
