@@ -59,7 +59,7 @@ def main():
         flag = 0
         st.set_page_config(
             page_title="Tech Map IT | Prototype",
-            layout='centered', # 'centered' or 'wide'
+            layout='wide', # 'centered' or 'wide'
             page_icon=f"{parent_path}/images/logo.png",
             initial_sidebar_state="auto"
         )
@@ -84,6 +84,10 @@ def main():
             logger.log(f"action:apply, element:session_state['user_id']={st.session_state['user_id']}",flag=4,name=method_name)
         logger.log(f"action:apply, element:session_state['current_view']={st.session_state.get('current_view')}", flag=4, name=method_name)
         
+        # to show default columns
+        if 'show_default_columns' not in st.session_state:
+            st.session_state['show_default_columns'] = True
+            logger.log(f"action:apply, element:session_state['show_default_columns']={st.session_state['show_default_columns']}", flag=4, name=method_name)
         
         ### authenticator init
         flag = 2

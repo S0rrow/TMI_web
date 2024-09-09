@@ -7,6 +7,13 @@ from datetime import datetime
 from .utils import Logger
 from .datastore import get_job_informations, get_search_history, save_search_history, load_config
 
+### detailed job information button onclick method
+def on_click_detail_button(row_df:pd.DataFrame, logger:Logger):
+    method_name = __name__ + ".on_click_detail_button"
+    cols = row_df.columns
+    logger.log(f"cols:{cols}",name=method_name)
+    logger.log(f"action:click, element:detail_button_", flag=4, name=method_name)
+    
 ### render charts
 def plot_pie_chart(stack_counts, logger):
     method_name = __name__+".plot_pie_chart"
@@ -51,15 +58,17 @@ def plot_horizontal_bar_chart(stack_counts,logger):
     st.subheader("Tech Stacks as Horizontal Bar Chart")
     st.pyplot(fig)
     logger.log(f"action:load, element:horizontal_bar_chart", flag=4, name=method_name)
-    
 ### render filters if user wants to filter data and search specific records
-def display_filters(df:pd.DataFrame, search_history:pd.DataFrame, logger)->pd.DataFrame:
+def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> pd.DataFrame:
     '''
     Generate filters for each column in the dataframe.
     - df: dataframe to filter
     - search_history: dataframe to store search history
     '''
     method_name = __name__ + ".display_filters"
+    visible_columns = [col for col, show in columns_to_visualize.items() if show]
+    num_visible_columns = len(visible_columns)  # True인 열의 개수 저장
+    
     # Get the latest search term for the current session
     if search_history is not None and not search_history.empty:
         if len(search_history) == 1:
@@ -68,7 +77,7 @@ def display_filters(df:pd.DataFrame, search_history:pd.DataFrame, logger)->pd.Da
             latest_search_term = json.loads(search_history.iloc[-1]['search_term'])
     else:
         latest_search_term = {}
-    
+
     if df.empty or df is None:
         logger.log(f"Dataframe is empty", flag=1, name=method_name)
         return None, latest_search_term
@@ -76,68 +85,64 @@ def display_filters(df:pd.DataFrame, search_history:pd.DataFrame, logger)->pd.Da
         filtered_df = df.copy()
 
     try:
+        # Divide columns into equal widths to display filters horizontally
+        #num_columns = len(df.columns)  # Number of columns to filter
+        logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
+        columns = st.columns(num_visible_columns)  # Create column containers
+        i = 0
         for column in df.columns:
-            ### if column is 'stacks', show unique stacks in multiselect
-            if column == 'stacks':
-                all_stacks = []
-                for stack in df['stacks']:
-                    stack_list = ast.literal_eval(stack)
-                    all_stacks.extend(stack_list)
-                unique_stacks = list(set(all_stacks))
-                if st.session_state.get('apply_last_filter', None):
-                    default_filter = latest_search_term.get(column, [])
-                else:
-                    default_filter = []
-                selected_stacks = st.multiselect(f"Select {column}", unique_stacks, default=default_filter)
-                if selected_stacks:
-                    filtered_df = filtered_df[filtered_df['stacks'].apply(lambda x: any(stack in ast.literal_eval(x) for stack in selected_stacks))]
-                latest_search_term[column] = selected_stacks
-            ### if column is not 'stacks', show unique values in multiselect
-            elif df[column].dtype == 'object':
-                unique_values = df[column].unique().tolist()
-                if None in unique_values:
-                    unique_values = ['None' if v is None else v for v in unique_values]
-                unique_values = sorted(unique_values)
-                if st.session_state['apply_last_filter']:
-                    default_filter = latest_search_term.get(column, [])
-                else:
-                    default_filter = []
-                selected_values = st.multiselect(f"Select {column}", unique_values, default=default_filter)
-                if selected_values:
-                    if 'None' in selected_values:
-                        filtered_df = filtered_df[(filtered_df[column].isin([v for v in selected_values if v != 'None'])) | (filtered_df[column].isna())]
-                    else:
-                        filtered_df = filtered_df[filtered_df[column].isin(selected_values)]
-                latest_search_term[column] = selected_values
-                
-            ### if column is 'salary', show salary range in slider
-            elif df[column].dtype in ['int64', 'float64']:
-                min_value = float(df[column].min())
-                max_value = float(df[column].max())
-                use_range = st.checkbox(f"Use {column} range")
-                if use_range:
-                    if st.session_state.get('apply_last_filter', None):
-                        default_range = latest_search_term.get(column, (min_value, max_value))
-                    else:
-                        default_range = (min_value, max_value)
-                    selected_range = st.slider(f"Select {column} range", min_value, max_value, default_range)
-                    filtered_df = filtered_df[(filtered_df[column] >= selected_range[0]) & (filtered_df[column] <= selected_range[1])]
-                    latest_search_term[column] = selected_range
+            with columns[i]:  # Render each filter within its own column   
+                ### if column is 'stacks', show unique stacks in multiselect
+                if column == 'stacks' and columns_to_visualize[column]:
+                    all_stacks = []
+                    for stack in df['stacks']:
+                        stack_list = ast.literal_eval(stack)
+                        all_stacks.extend(stack_list)
+                    unique_stacks = list(set(all_stacks))
                     
-            ### if column is 'start_date' or 'end_date', show date range in date picker
-            elif column in ['start_date', 'end_date']:
-                if st.session_state['apply_last_filter']:
-                    default_range = latest_search_term.get(column, (min_value, max_value))
-                else:
-                    default_range = (min_value, max_value)
-                selected_range = st.date_input(f"Select {column} range", value=default_range)
-                filtered_df = filtered_df[(filtered_df[column] >= selected_range[0]) & (filtered_df[column] <= selected_range[1])]
-                latest_search_term[column] = selected_range
-        logger.log(f"action:load, element:search_filters",flag=4,name=method_name)
+                    if st.session_state.get('apply_last_filter', None):
+                        default_filter = latest_search_term.get(column, [])
+                    else:
+                        default_filter = []
+
+                    selected_stacks = st.multiselect(f"{column}", unique_stacks, default=default_filter)
+                    
+                    if selected_stacks:
+                        filtered_df = filtered_df[filtered_df['stacks'].apply(
+                            lambda x: any(stack in ast.literal_eval(x) for stack in selected_stacks)
+                        )]
+                    latest_search_term[column] = selected_stacks
+                    i += 1
+                ### if column is not 'stacks', show unique values in multiselect
+                elif columns_to_visualize[column]:# df[column].dtype == 'object':
+                    unique_values = df[column].unique().tolist()
+                    if None in unique_values:
+                        unique_values = ['None' if v is None else v for v in unique_values]
+                    unique_values = sorted(unique_values)
+                    
+                    if st.session_state['apply_last_filter']:
+                        default_filter = latest_search_term.get(column, [])
+                    else:
+                        default_filter = []
+
+                    selected_values = st.multiselect(f"{column}", unique_values, default=default_filter)
+
+                    if selected_values:
+                        if 'None' in selected_values:
+                            filtered_df = filtered_df[
+                                (filtered_df[column].isin([v for v in selected_values if v != 'None'])) | (filtered_df[column].isna())
+                            ]
+                        else:
+                            filtered_df = filtered_df[filtered_df[column].isin(selected_values)]
+                    latest_search_term[column] = selected_values
+                    i += 1
+        logger.log(f"action:load, element:search_filters", flag=4, name=method_name)
         return filtered_df, latest_search_term
+
     except Exception as e:
         logger.log(f"Exception occurred while displaying filters: {e}", flag=1, name=method_name)
         return None, latest_search_term
+
 
 
 ### page display
@@ -167,6 +172,8 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         logger.log(f"action:load, element:data_load_state",flag=4, name=method_name)
         seperator = 1
         
+        # TODO
+        # 현재는 /test
         ### test endpoint로부터 데이터프레임 받아오기
         endpoint_test = f"{url}/test"
         df = get_job_informations(logger, endpoint_test, database, query)
@@ -176,7 +183,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         endpoint_history = f"{url}/history"
         search_history = get_search_history(endpoint_history, logger)
         if search_history is None or search_history.empty:
-            logger.log(f"No search history found", flag=1, name=method_name)
+            # logger.log(f"No search history found", flag=1, name=method_name)
             search_history = pd.DataFrame()
         seperator = 3
 
@@ -190,23 +197,51 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         data_load_state.text("Data loaded from st.cached_data")
         seperator = 4
         
-        ### show raw dataframe
-        if st.checkbox('Show raw data'):
-            st.subheader("Raw data")
-            logger.log(f"action:load, element:raw_data_sub_header",flag=4, name=method_name)
-            st.dataframe(df, use_container_width=True)
-            logger.log(f"action:load, element:raw_data_frame",flag=4, name=method_name)
-        seperator = 5
+        top_col1, top_col2 = st.columns(2)
+        ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
+        with top_col1:
+            checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
+        default_visualized_column_list = {}
+        columns_to_visualize = {}
         
+        ### default를 보여주도록 설정되어 있을 경우
+        for column in visualized_df.columns:
+            if column in ['job_title', 'stacks', 'company_name', 'country', 'remote', 'job_category','stacks', 'URL']:
+                default_visualized_column_list[column] = True
+            else:
+                default_visualized_column_list[column] = False
+            columns_to_visualize[column] = False
+        show_default_columns = st.session_state.get('show_default_columns', False)
+
+        ### 그게 아니라 선택을 수정한 기록이 있을 경우
+        if 'column_list_to_visualize' not in st.session_state:
+            st.session_state['column_list_to_visualize'] = columns_to_visualize
+    
+        with checkbox_expander:
+            if show_default_columns:
+                for column in visualized_df.columns:
+                    value = default_visualized_column_list[column]
+                    
+                    if st.checkbox(f"{column}", value=value):
+                        columns_to_visualize[column] = True
+                    else:
+                        columns_to_visualize[column] = False
+            else:
+                for column in visualized_df.columns:
+                    if st.checkbox(f"{column}", value=True):
+                        columns_to_visualize[column] = True
         ### 필터 옵션 표시 여부
-        show_filters = st.checkbox("필터 옵션 표시", value=False)
+        with top_col2:
+            show_filters = st.checkbox("필터 옵션 표시", value=False)
         logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
         seperator = 6
+        
+        visible_columns = [col for col, show in columns_to_visualize.items() if show]
         
         if show_filters:
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
             st.session_state['job_info_filtered'] = True
-            filtered_df, current_filter = display_filters(df, search_history, logger)
+            filtered_df, current_filter = display_filters(df, search_history, logger, columns_to_visualize)
             filter_btn = st.button("필터 적용")
             logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
             reset_filter_btn = st.button("필터 초기화")
@@ -243,16 +278,31 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
 
             # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
             st.subheader("필터링된 데이터")
-            st.dataframe(visualized_df, use_container_width=True)
+            filtered_visualized_df = visualized_df.loc[:, visible_columns]
+            
+            ### 최종적으로 필터링된 데이터프레임 시각화
+            st.dataframe(filtered_visualized_df, use_container_width=True)
             seperator = 10
         else:
             st.session_state['job_info_filtered'] = False
             st.subheader("전체 데이터")
-            st.dataframe(df, use_container_width=True)
+            filtered_visualized_df = df.loc[:, visible_columns]
+            
+            ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
+            for index, row in filtered_visualized_df.iterrows():
+                col1, col2 = st.columns([1,10])
+                row_df = pd.DataFrame(row)
+                with col1:
+                    job_info_button = st.button(f"자세히 보기", on_click=on_click_detail_button(row_df, logger),key=index)
+                with col2:
+                    st.table(data=row_df.transpose())
+            #st.dataframe(filtered_visualized_df, use_container_width=True)
             seperator = 11
+        
         ### select type of chart to show
         chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
         seperator = 12
+        
         ### convert stacks to df to visualize counts
         all_stacks = []
         if st.session_state['job_info_filtered']:

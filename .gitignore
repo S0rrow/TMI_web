@@ -8,3 +8,9 @@ tests/
 .aws/
 credentials.yaml
 *.json
+
+# virtual environment
+venv/
+
+# cache
+*__pycache__/
