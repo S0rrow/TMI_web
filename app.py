@@ -140,7 +140,7 @@ def main():
         elif st.session_state.get('current_view') == "login":
             views.display_login_page(logger, authenticator)
         elif st.session_state.get('current_view') == "job_informations":
-            views.display_job_informations(logger, url="http://127.0.0.1:8000")
+            views.display_job_informations(logger)
         elif st.session_state.get('current_view') == "user_information":
             views.display_user_information(logger, authenticator)
         elif st.session_state.get('current_view') == "filter_log":
