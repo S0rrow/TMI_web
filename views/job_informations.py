@@ -174,7 +174,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         # TODO
         # 현재는 /test
         ### test endpoint로부터 데이터프레임 받아오기
-        endpoint_test = f"{url}/test"
+        endpoint_test = f"{url}/query"
         df = get_job_informations(logger, endpoint_test, database, query)
         seperator = 2
 
