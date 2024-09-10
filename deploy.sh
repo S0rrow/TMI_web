@@ -6,7 +6,7 @@ git pull origin main
 VENV_DIR="venv"
 
 # check if venv already exists
-if [ -d "$VENV_DIR"]; then
+if [ -d "$VENV_DIR" ]; then
   echo "Virtual Environment already exists. Updating dependencies..."
   source $VENV_DIR/bin/activate
 else
@@ -24,3 +24,5 @@ fi
 
 # Start Streamlit app in the background
 nohup streamlit run app.py --server.port 8501 --server.enableCORS false --server.enableXsrfProtection false > streamlit.log 2>&1 &
+
+echo "app deployment complete."
