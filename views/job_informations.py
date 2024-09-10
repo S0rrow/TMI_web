@@ -205,7 +205,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         
         ### default를 보여주도록 설정되어 있을 경우
         for column in visualized_df.columns:
-            if column in ['job_title', 'stacks', 'company_name', 'country', 'remote', 'job_category','stacks', 'URL']:
+            if column in ['job_title', 'job_category', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
             else:
                 default_visualized_column_list[column] = False
