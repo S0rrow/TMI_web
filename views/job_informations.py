@@ -7,13 +7,12 @@ from datetime import datetime
 from .utils import Logger
 from .datastore import get_job_informations, get_search_history, save_search_history, load_config
 
-### detailed job information button onclick method
-def on_click_detail_button(row_df:pd.DataFrame, logger:Logger):
-    method_name = __name__ + ".on_click_detail_button"
-    cols = row_df.columns
-    logger.log(f"cols:{cols}",name=method_name)
-    logger.log(f"action:click, element:detail_button_", flag=4, name=method_name)
-    
+### dialog
+@st.dialog("Detailed Information", width="large")
+def detail(row_df:pd.DataFrame, logger:Logger):
+    st.write(row_df.transpose().columns.tolist())
+    st.table(row_df.transpose())
+
 ### render charts
 def plot_pie_chart(stack_counts, logger):
     method_name = __name__+".plot_pie_chart"
@@ -216,27 +215,28 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         ### 그게 아니라 선택을 수정한 기록이 있을 경우
         if 'column_list_to_visualize' not in st.session_state:
             st.session_state['column_list_to_visualize'] = columns_to_visualize
-    
+
         with checkbox_expander:
             if show_default_columns:
                 for column in visualized_df.columns:
                     value = default_visualized_column_list[column]
-                    
-                    if st.checkbox(f"{column}", value=value):
-                        columns_to_visualize[column] = True
+                    column_checkbox = st.checkbox(f"{column}", value=value, key=column)
+                    if column_checkbox:
+                        st.session_state['column_list_to_visualize'][column] = True
                     else:
-                        columns_to_visualize[column] = False
+                        st.session_state['column_list_to_visualize'][column] = False
             else:
                 for column in visualized_df.columns:
                     if st.checkbox(f"{column}", value=True):
-                        columns_to_visualize[column] = True
+                        st.session_state['column_list_to_visualize'][column] = True
+        
         ### 필터 옵션 표시 여부
         with top_col2:
             show_filters = st.checkbox("필터 옵션 표시", value=False)
-        logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
+            logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
         seperator = 6
         
-        visible_columns = [col for col, show in columns_to_visualize.items() if show]
+        visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
         
         if show_filters:
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
@@ -289,13 +289,16 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
             filtered_visualized_df = df.loc[:, visible_columns]
             
             ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
-            for index, row in filtered_visualized_df.iterrows():
-                col1, col2 = st.columns([1,10])
+            for index, row in df.iterrows():
+                col1, col2 = st.columns([10,1])
+                sliced_row_df = pd.DataFrame(row.loc[visible_columns])
                 row_df = pd.DataFrame(row)
                 with col1:
-                    job_info_button = st.button(f"자세히 보기", on_click=on_click_detail_button(row_df, logger),key=index)
+                    st.table(data=sliced_row_df.transpose())
                 with col2:
-                    st.table(data=row_df.transpose())
+                    detail_btn = st.button(f"자세히 보기", key=index)
+                    if detail_btn:
+                        detail(row_df, logger)
             #st.dataframe(filtered_visualized_df, use_container_width=True)
             seperator = 11
         

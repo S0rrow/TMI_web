@@ -83,7 +83,6 @@ def main():
             st.session_state['user_id'] = hashlib.md5(st.session_state['user_info'].get('email').encode()).hexdigest()
             logger.log(f"action:apply, element:session_state['user_id']={st.session_state['user_id']}",flag=4,name=method_name)
         logger.log(f"action:apply, element:session_state['current_view']={st.session_state.get('current_view')}", flag=4, name=method_name)
-        
         # to show default columns
         if 'show_default_columns' not in st.session_state:
             st.session_state['show_default_columns'] = True
