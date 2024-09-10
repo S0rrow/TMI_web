@@ -29,6 +29,6 @@ jobs:
 
     - name: Deploy to EC2
       run: |
-        scp -o StrictHostKeyChecking=no -i key.pem deploy.sh ubuntu@${{ secrets.EC2_IP }}:/home/ubuntu
+        scp -o StrictHostKeyChecking=no -i key.pem .github/scripts/deploy.sh ubuntu@${{ secrets.EC2_IP }}:/home/ubuntu
         ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.EC2_IP }} 'chmod +x /home/ubuntu/deploy.sh'
         ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.EC2_IP }} 'bash /home/ubuntu/deploy.sh'
