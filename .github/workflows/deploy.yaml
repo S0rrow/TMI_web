@@ -1,0 +1,35 @@
+name: Streamlit CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Deploy to EC2
+      run: |
+        ssh -o StrictHostKeyChecking=no -i your-key.pem ubuntu@your-ec2-public-ip <<EOF
+        cd /path/to/your/app
+        git pull origin main
+        pip install -r requirements.txt
+        nohup streamlit run app.py --server.port 80 --server.enableCORS false --server.enableXsrfProtection false &
+        EOF
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        EC2_IP: ${{ secrets.EC2_IP }}
