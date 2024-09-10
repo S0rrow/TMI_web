@@ -22,14 +22,20 @@ jobs:
       run: |
         pip install -r requirements.txt
 
+    - name: Add SSH key
+      run: |
+        echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+        chmod 600 key.pem
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+
     - name: Deploy to EC2
       run: |
-        ssh -o StrictHostKeyChecking=no -i your-key.pem ubuntu@your-ec2-public-ip <<EOF
-        cd /path/to/your/app
+        ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.EC2_IP }} <<EOF
+        cd /home/ubuntu/TMI_web
         git pull origin main
         pip install -r requirements.txt
         nohup streamlit run app.py --server.port 80 --server.enableCORS false --server.enableXsrfProtection false &
         EOF
       env:
-        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         EC2_IP: ${{ secrets.EC2_IP }}
