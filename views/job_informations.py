@@ -92,9 +92,9 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         for column in df.columns:
             with columns[i]:  # Render each filter within its own column   
                 ### if column is 'stacks', show unique stacks in multiselect
-                if column == 'stacks' and columns_to_visualize[column]:
+                if column == 'dev_stacks' and columns_to_visualize[column]:
                     all_stacks = []
-                    for stack in df['stacks']:
+                    for stack in df['dev_stacks']:
                         stack_list = ast.literal_eval(stack)
                         all_stacks.extend(stack_list)
                     unique_stacks = list(set(all_stacks))
