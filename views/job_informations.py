@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from datetime import datetime
 from .utils import Logger
-from .datastore import get_job_informations, get_search_history, save_search_history, load_config
+from .datastore import get_job_informations, get_search_history, save_search_history, load_config, get_unique_column_values
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
@@ -60,7 +60,8 @@ def plot_horizontal_bar_chart(stack_counts,logger):
     st.subheader("Tech Stacks as Horizontal Bar Chart")
     st.pyplot(fig)
     logger.log(f"action:load, element:horizontal_bar_chart", flag=4, name=method_name)
-    
+
+
 ### render filters if user wants to filter data and search specific records
 def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> pd.DataFrame:
     '''
@@ -71,6 +72,9 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
     method_name = __name__ + ".display_filters"
     visible_columns = [col for col, show in columns_to_visualize.items() if show]
     num_visible_columns = len(visible_columns)  # True인 열의 개수 저장
+    
+    # dataframe에서 첫 줄의 각 원소를 가져와서 해당 원소가 '['로 시작하면 스택형 원소이므로 그 column이름을 stacked_column이라는 이름의 list에 저장.
+    stacked_column = [col for col in df.columns if str(df[col].iloc[0]).startswith('[')]
     
     # Get the latest search term for the current session
     if search_history is not None and not search_history.empty:
@@ -93,16 +97,18 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
         columns = st.columns(num_visible_columns)  # Create column containers
         i = 0
+        config = load_config()
+        endpoint_uv = config['API_URL'] + "/unique_values"
+        
         for column in df.columns:
             with columns[i]:  # Render each filter within its own column   
                 ### if column is 'dev_stacks', show unique stacks in multiselect
-                if column in ['industry_types', 'job_categories', 'job_prefers', 'dev_stacks', 'job_requirements'] and columns_to_visualize[column]:
+                if column in stacked_column and columns_to_visualize[column]:
                     all_stacks = []
                     for stack in df[column]:
                         stack_list = ast.literal_eval(stack)
                         all_stacks.extend(stack_list)
-                    unique_stacks = list(set(all_stacks))
-                    
+                    unique_stacks = get_unique_column_values(logger, endpoint_uv, config['DATABASE'], config['TABLE'], column)
                     if st.session_state.get('apply_last_filter', None):
                         default_filter = latest_search_term.get(column, [])
                     else:
@@ -317,7 +323,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                 stack_list = ast.literal_eval(stack)  # string to list
                 all_stacks.extend(stack_list)  # combine into single list
         else:
-            for stack in df['stacks']:
+            for stack in df['dev_stacks']:
                 stack_list = ast.literal_eval(stack)  # string to list
                 all_stacks.extend(stack_list)  # combine into single list
         stack_counts = Counter(all_stacks)

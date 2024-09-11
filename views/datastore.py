@@ -130,3 +130,21 @@ def get_job_informations(_logger, endpoint:str, database:str, query:str)->pd.Dat
     except Exception as e:
         _logger.log(f"Exception occurred while getting dataframe: {e}", flag=1, name=method_name)
         return None
+    
+### retrieve unique values from given column
+def get_unique_column_values(_logger, endpoint:str, database:str, table:str, column:str)->list:
+    '''
+        request unique values in dict to endpoint and return list of values.
+        - endpoint: API endpoint
+        - database: name of database to use
+        - table: name of table to use
+        - column: name of column to parse.
+    '''
+    method_name = __name__ + ".get_unique_column_values"
+    try:
+        payload = {"database":f"{database}", "table":f"{table}","column":f"{column}"}
+        result = json.loads(requests.post(endpoint, data=json.dumps(payload)).text)
+        return result['unique_values']
+    except Exception as e:
+        _logger.log(f"Exception occurred while getting unique values for column {column}: {e}", flag=1, name=method_name)
+        return None
