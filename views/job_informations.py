@@ -11,9 +11,9 @@ from .datastore import get_job_informations, get_search_history, save_search_his
 @st.dialog("Detailed Information", width="large")
 def detail(row_df:pd.DataFrame, logger:Logger):
     col_list = row_df.transpose().columns.tolist()
-    detail_string = f"""\n# {row_df['job_title']}\n"""
+    detail_string = f"""\n#{row_df.transpose()['job_title']}\n"""
     for col in col_list:
-        detail_string += f"\n##{col}\n{row_df[col]}\n"
+        detail_string += f"\n##{col}\n{row_df.transpose()[col]}\n"
     st.write(detail_string)
 
 ### render charts
