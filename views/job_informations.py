@@ -60,6 +60,7 @@ def plot_horizontal_bar_chart(stack_counts,logger):
     st.subheader("Tech Stacks as Horizontal Bar Chart")
     st.pyplot(fig)
     logger.log(f"action:load, element:horizontal_bar_chart", flag=4, name=method_name)
+    
 ### render filters if user wants to filter data and search specific records
 def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> pd.DataFrame:
     '''
@@ -94,10 +95,10 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         i = 0
         for column in df.columns:
             with columns[i]:  # Render each filter within its own column   
-                ### if column is 'stacks', show unique stacks in multiselect
-                if column == 'dev_stacks' and columns_to_visualize[column]:
+                ### if column is 'dev_stacks', show unique stacks in multiselect
+                if column in ['industry_types', 'job_categories', 'job_prefers', 'dev_stacks', 'job_requirements'] and columns_to_visualize[column]:
                     all_stacks = []
-                    for stack in df['dev_stacks']:
+                    for stack in df[column]:
                         stack_list = ast.literal_eval(stack)
                         all_stacks.extend(stack_list)
                     unique_stacks = list(set(all_stacks))
@@ -110,7 +111,7 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                     selected_stacks = st.multiselect(f"{column}", unique_stacks, default=default_filter)
                     
                     if selected_stacks:
-                        filtered_df = filtered_df[filtered_df['stacks'].apply(
+                        filtered_df = filtered_df[filtered_df[column].apply(
                             lambda x: any(stack in ast.literal_eval(x) for stack in selected_stacks)
                         )]
                     latest_search_term[column] = selected_stacks
@@ -208,7 +209,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         
         ### default를 보여주도록 설정되어 있을 경우
         for column in visualized_df.columns:
-            if column in ['job_title', 'job_category', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
+            if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
             else:
                 default_visualized_column_list[column] = False
@@ -312,7 +313,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         ### convert stacks to df to visualize counts
         all_stacks = []
         if st.session_state['job_info_filtered']:
-            for stack in visualized_df['stacks']:
+            for stack in visualized_df['dev_stacks']:
                 stack_list = ast.literal_eval(stack)  # string to list
                 all_stacks.extend(stack_list)  # combine into single list
         else:
