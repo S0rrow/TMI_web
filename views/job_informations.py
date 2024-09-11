@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from datetime import datetime
 from .utils import Logger
-from .datastore import get_job_informations, get_search_history, save_search_history, load_config, get_unique_column_values
+from .datastore import get_job_informations, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names
 from typing import Tuple
 
 ### dialog
@@ -127,7 +127,8 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                             lambda x: any(stack in ast.literal_eval(x) for stack in selected_stacks)
                         )]
                     latest_search_term[column] = selected_stacks
-                    i += 1
+                    if i < num_visible_columns:
+                        i += 1
                 ### if column is not 'dev_stacks', show unique values in multiselect
                 elif columns_to_visualize[column]:# df[column].dtype == 'object':
                     seperator = 5
@@ -151,7 +152,8 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                         else:
                             filtered_df = filtered_df[filtered_df[column].isin(selected_values)]
                     latest_search_term[column] = selected_values
-                    i += 1
+                    if i < num_visible_columns:
+                        i += 1
         seperator = 6
         logger.log(f"action:load, element:search_filters", flag=4, name=method_name)
         return filtered_df, latest_search_term
@@ -178,6 +180,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
             database = config.get("DATABASE")
         if 'job_info_filtered' not in st.session_state:
             st.session_state['job_info_filtered'] = False
+        
         seperator = 0
         st.title("Job Information - Tech Stack Visualizations")
         logger.log(f"action:load, element:title",flag=4, name=method_name)
@@ -187,9 +190,10 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         logger.log(f"action:load, element:data_load_state",flag=4, name=method_name)
         seperator = 1
         
-        ### endpoint로부터 데이터프레임 받아오기
-        endpoint_test = f"{url}/query"
-        df = get_job_informations(logger, endpoint_test, database, query)
+        ### endpoint로부터 column들의 목록을 먼저 받아온다.
+        endpoint = f"{url}/query"
+        columns = get_column_names(logger, endpoint, database, config['TABLE'])
+        df = get_job_informations(logger, endpoint, database, query)
         seperator = 2
 
         ### 검색 기록 받아오기
@@ -313,6 +317,8 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
             #st.dataframe(filtered_visualized_df, use_container_width=True)
             seperator = 11
         
+        ### 데이터를 시각화하기 위한 차트
+        
         ### select type of chart to show
         chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
         seperator = 12
@@ -329,6 +335,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                 all_stacks.extend(stack_list)  # combine into single list
         stack_counts = Counter(all_stacks)
         seperator = 13
+        
         ### col1 = selected chart, col2 = df of tech stacks with ['stack name', 'count of stacks'] as columns
         col1, col2 = st.columns([2, 1])
         with col1:
