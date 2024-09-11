@@ -18,8 +18,12 @@ fi
 pip install -r requirements.txt
 
 # Check if Streamlit is running on port 8501 and stop it
-if lsof -i :8501; then
-  pkill -f 'streamlit run app.py'
+PID=$(lsof -t -i:8501)
+if [ -n "$PID" ]; then
+  echo "Stopping Streamlit process with PID: $PID"
+  kill -9 $PID
+else
+  echo "No Streamlit process is running on port 8501"
 fi
 
 # Start Streamlit app in the background

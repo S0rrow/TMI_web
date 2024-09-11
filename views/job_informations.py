@@ -112,7 +112,7 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                         )]
                     latest_search_term[column] = selected_stacks
                     i += 1
-                ### if column is not 'stacks', show unique values in multiselect
+                ### if column is not 'dev_stacks', show unique values in multiselect
                 elif columns_to_visualize[column]:# df[column].dtype == 'object':
                     unique_values = df[column].unique().tolist()
                     if None in unique_values:
