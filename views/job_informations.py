@@ -95,6 +95,10 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         # Divide columns into equal widths to display filters horizontally
         #num_columns = len(df.columns)  # Number of columns to filter
         logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
+        if num_visible_columns <= 0:
+            logger.log(f"No columns to show", flag=0, name=method_name)
+            st.write("No columns selected")
+            return None, latest_search_term
         columns = st.columns(num_visible_columns)  # Create column containers
         i = 0
         config = load_config()
@@ -217,9 +221,10 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         for column in visualized_df.columns:
             if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
+                columns_to_visualize[column] = True
             else:
                 default_visualized_column_list[column] = False
-            columns_to_visualize[column] = False
+                columns_to_visualize[column] = False
         show_default_columns = st.session_state.get('show_default_columns', False)
 
         ### 그게 아니라 선택을 수정한 기록이 있을 경우
@@ -251,7 +256,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         if show_filters:
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
             st.session_state['job_info_filtered'] = True
-            filtered_df, current_filter = display_filters(df, search_history, logger, columns_to_visualize)
+            filtered_df, current_filter = display_filters(df, search_history, logger, st.session_state['column_list_to_visualize'])
             filter_btn = st.button("필터 적용")
             logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
             reset_filter_btn = st.button("필터 초기화")
