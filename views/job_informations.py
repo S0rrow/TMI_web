@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import datetime
 from .utils import Logger
 from .datastore import get_job_informations, get_search_history, save_search_history, load_config, get_unique_column_values
+from typing import Tuple
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
@@ -63,7 +64,7 @@ def plot_horizontal_bar_chart(stack_counts,logger):
 
 
 ### render filters if user wants to filter data and search specific records
-def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> pd.DataFrame:
+def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> Tuple[pd.DataFrame, dict]:
     '''
     Generate filters for each column in the dataframe.
     - df: dataframe to filter
@@ -72,10 +73,10 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
     method_name = __name__ + ".display_filters"
     visible_columns = [col for col, show in columns_to_visualize.items() if show]
     num_visible_columns = len(visible_columns)  # True인 열의 개수 저장
-    
+    seperator = -1
     # dataframe에서 첫 줄의 각 원소를 가져와서 해당 원소가 '['로 시작하면 스택형 원소이므로 그 column이름을 stacked_column이라는 이름의 list에 저장.
     stacked_column = [col for col in df.columns if str(df[col].iloc[0]).startswith('[')]
-    
+    seperator = 0
     # Get the latest search term for the current session
     if search_history is not None and not search_history.empty:
         if len(search_history) == 1:
@@ -84,13 +85,13 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
             latest_search_term = json.loads(search_history.iloc[-1]['search_term'])
     else:
         latest_search_term = {}
-
+    seperator = 1
     if df.empty or df is None:
         logger.log(f"Dataframe is empty", flag=1, name=method_name)
         return None, latest_search_term
     else:
         filtered_df = df.copy()
-
+    seperator = 2
     try:
         # Divide columns into equal widths to display filters horizontally
         #num_columns = len(df.columns)  # Number of columns to filter
@@ -103,11 +104,12 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         i = 0
         config = load_config()
         endpoint_uv = config['API_URL'] + "/unique_values"
-        
+        seperator = 3
         for column in df.columns:
             with columns[i]:  # Render each filter within its own column   
                 ### if column is 'dev_stacks', show unique stacks in multiselect
                 if column in stacked_column and columns_to_visualize[column]:
+                    seperator = 4
                     all_stacks = []
                     for stack in df[column]:
                         stack_list = ast.literal_eval(stack)
@@ -128,6 +130,7 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                     i += 1
                 ### if column is not 'dev_stacks', show unique values in multiselect
                 elif columns_to_visualize[column]:# df[column].dtype == 'object':
+                    seperator = 5
                     unique_values = df[column].unique().tolist()
                     if None in unique_values:
                         unique_values = ['None' if v is None else v for v in unique_values]
@@ -149,14 +152,13 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
                             filtered_df = filtered_df[filtered_df[column].isin(selected_values)]
                     latest_search_term[column] = selected_values
                     i += 1
+        seperator = 6
         logger.log(f"action:load, element:search_filters", flag=4, name=method_name)
         return filtered_df, latest_search_term
 
     except Exception as e:
-        logger.log(f"Exception occurred while displaying filters: {e}", flag=1, name=method_name)
+        logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
         return None, latest_search_term
-
-
 
 ### page display
 def display_job_informations(logger, url:str=None, database:str=None, query:str=None):
@@ -185,9 +187,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         logger.log(f"action:load, element:data_load_state",flag=4, name=method_name)
         seperator = 1
         
-        # TODO
-        # 현재는 /test
-        ### test endpoint로부터 데이터프레임 받아오기
+        ### endpoint로부터 데이터프레임 받아오기
         endpoint_test = f"{url}/query"
         df = get_job_informations(logger, endpoint_test, database, query)
         seperator = 2
@@ -232,6 +232,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
             st.session_state['column_list_to_visualize'] = columns_to_visualize
 
         with checkbox_expander:
+            ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
             if show_default_columns:
                 for column in visualized_df.columns:
                     value = default_visualized_column_list[column]
@@ -254,6 +255,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
         
         if show_filters:
+            ### 필터를 보여주도록 선택한 경우
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
             st.session_state['job_info_filtered'] = True
             filtered_df, current_filter = display_filters(df, search_history, logger, st.session_state['column_list_to_visualize'])
@@ -267,18 +269,12 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                 if filter_btn:
                     logger.log(f"action:click, element:apply_filter_button",flag=4, name=method_name)
                     # 필터 로그 저장
-                    ## class SearchHistory(BaseModel):
-                    # session_id: str
-                    # search_history: dict
-                    # timestamp: datetime
-                    # user_id: str
-                    # is_logged_in: bool
                     save_history_response = save_search_history(endpoint_history, current_filter, logger)
                     if save_history_response.status_code == 200 and save_history_response.json().get("status") == "success":
                         st.success("필터가 저장되었습니다.")
                         st.session_state['apply_last_filter'] = True
                     else:
-                        st.error("필터 저장에 실패했습니다.")
+                        st.error(f"필터 저장에 실패했습니다. ({save_history_response.status_code})")
                         st.session_state['apply_last_filter'] = False
                     visualized_df = filtered_df.copy()
                     seperator = 8

@@ -148,3 +148,20 @@ def get_unique_column_values(_logger, endpoint:str, database:str, table:str, col
     except Exception as e:
         _logger.log(f"Exception occurred while getting unique values for column {column}: {e}", flag=1, name=method_name)
         return None
+
+### retrieve column names of table in database
+def get_column_names(_logger, endpoint:str, database:str, table:str)->list:
+    '''
+        request metadata of column names of given table to endpoint
+        - endpoint: API endpoint
+        - database: name of database to use
+        - table: name of table to retrieve columns
+    '''
+    method_name = __name__ + ".get_column_names"
+    try:
+        payload = {"database":f"{database}", "table":f"{table}"}
+        result = json.loads(requests.post(endpoint, data=json.dumps(payload)).text)
+        return result["column_names"]
+    except Exception as e:
+        _logger.log(f"Exception occurred while getting column names from table {table}: {e}", flag=1, name=method_name)
+        return None
