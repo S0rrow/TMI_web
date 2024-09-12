@@ -53,6 +53,7 @@ def display_history(logger):
                 logger.log(f"action:click, element:clear_button", flag=4, name=method_name)
                 if clear_search_history(endpoint, logger):
                     st.success("Filter log cleared successfully")
+                    st.rerun()
                 else:
                     st.error("Failed to clear filter log")
         with col3:

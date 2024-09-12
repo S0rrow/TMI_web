@@ -302,7 +302,7 @@ def display_job_informations(logger):
                     with col2:
                         detail_btn = st.button(f"자세히 보기", key=index)
                         if detail_btn:
-                            detail(row_df, logger, row_df['pid'], row_df['crawl_url'])
+                            detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             else:
                 ### 버튼이 눌리지 않았을 경우
                 result_df = pd.DataFrame()
@@ -325,7 +325,7 @@ def display_job_informations(logger):
                 with col2:
                     detail_btn = st.button(f"자세히 보기", key=index)
                     if detail_btn:
-                        detail(row_df, logger, row_df['pid'], row_df['crawl_url'])
+                        detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             seperator = 12
         
         ### 데이터를 시각화하기 위한 차트
