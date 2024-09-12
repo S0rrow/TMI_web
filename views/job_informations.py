@@ -8,7 +8,7 @@ from .datastore import call_dataframe, get_search_history, save_search_history, 
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
-def detail(logger:Logger, config, pid, crawl_url):
+def detail(logger:Logger, config:dict, pid:int, crawl_url:str):
     method_name = __name__ + ".detail"
     logger.log(f"action:load, element:detail_page_{pid}",flag=4, name=method_name)
     try:
@@ -308,7 +308,9 @@ def display_job_informations(logger):
                             detail_btn = st.button(f"자세히 보기", key=index)
                             if detail_btn:
                                 logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
-                                detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
+                                pid = int(row_df['pid'].values[0])
+                                crawl_url = str(row_df['crawl_url'].values[0])
+                                detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
             else:
                 ### 버튼이 눌리지 않았을 경우
                 result_df = pd.DataFrame()
@@ -336,7 +338,9 @@ def display_job_informations(logger):
                         detail_btn = st.button(f"자세히 보기", key=index)
                         if detail_btn:
                             logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
-                            detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
+                            pid = int(row_df['pid'].values[0])
+                            crawl_url = str(row_df['crawl_url'].values[0])
+                            detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
             seperator = 12
         
         ### 데이터를 시각화하기 위한 차트
