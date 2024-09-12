@@ -114,7 +114,7 @@ def save_search_history(endpoint:str, search_history:dict, logger)->requests.Res
 
 ### retrieve dataframe from endpoint
 @st.cache_data
-def get_job_informations(_logger, endpoint:str, database:str, query:str)->pd.DataFrame:
+def call_dataframe(_logger, endpoint:str, database:str, query:str)->pd.DataFrame:
     '''
         Send query as post method to the endpoint, and return query results in pandas dataframe format.
         - endpoint: API endpoint
@@ -132,7 +132,7 @@ def get_job_informations(_logger, endpoint:str, database:str, query:str)->pd.Dat
         return None
     
 ### retrieve unique values from given column
-def get_unique_column_values(_logger, endpoint:str, database:str, table:str, column:str)->list:
+def get_unique_column_values(_logger, endpoint:str, database:str, table:str, column:str, is_stacked:bool)->list:
     '''
         request unique values in dict to endpoint and return list of values.
         - endpoint: API endpoint
@@ -142,7 +142,7 @@ def get_unique_column_values(_logger, endpoint:str, database:str, table:str, col
     '''
     method_name = __name__ + ".get_unique_column_values"
     try:
-        payload = {"database":f"{database}", "table":f"{table}","column":f"{column}"}
+        payload = {"database":f"{database}", "table":f"{table}","column":f"{column}","is_stacked":is_stacked}
         result = json.loads(requests.post(endpoint, data=json.dumps(payload)).text)
         return result['unique_values']
     except Exception as e:
@@ -150,6 +150,7 @@ def get_unique_column_values(_logger, endpoint:str, database:str, table:str, col
         return None
 
 ### retrieve column names of table in database
+@st.cache_data
 def get_column_names(_logger, endpoint:str, database:str, table:str)->list:
     '''
         request metadata of column names of given table to endpoint
@@ -165,10 +166,12 @@ def get_column_names(_logger, endpoint:str, database:str, table:str)->list:
     except Exception as e:
         _logger.log(f"Exception occurred while getting column names from table {table}: {e}", flag=1, name=method_name)
         return None
+
 ### get row count of a table   
 def get_table_row_counts(_logger, endpoint:str, database:str, table:str)->int:
     method_name = __name__ + ".get_table_row_counts"
     try:
+        # row count
         response = requests.get(endpoint, params={"database":database, "table":table})
         # check if result is not empty and status code is 200
         if response.status_code == 200 and response.text:
@@ -176,4 +179,18 @@ def get_table_row_counts(_logger, endpoint:str, database:str, table:str)->int:
             return int(result['row_count'])
     except Exception as e:
         _logger.log(f"Exception occurred while counting rows from table {table}: {e}", flag=1, name=method_name)
+        return None
+    
+def get_stacked_columns(_logger, endpoint:str, database:str, table:str)->list:
+    method_name = __name__ + ".call_stacked_columns"
+    try:
+        response = requests.get(endpoint, params={"database":database, "table":table})
+        if response.status_code == 200 and response.text:
+            result = json.loads(response.text)
+            return list(result['stacked_columns'])
+        else:
+            _logger.log(f"wrong response from given endpoint: {response.status_code}",flag=1, name=method_name)
+            return None
+    except Exception as e:
+        _logger.log(f"Exception occurred while getting list of stacked columns from table {table}: {e}", flag=1, name=method_name)
         return None

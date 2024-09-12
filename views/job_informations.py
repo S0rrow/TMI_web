@@ -5,17 +5,21 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from datetime import datetime
 from .utils import Logger
-from .datastore import get_job_informations, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names
+from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, get_stacked_columns
 from typing import Tuple
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
-def detail(row_df:pd.DataFrame, logger:Logger):
-    col_list = row_df.transpose().columns.tolist()
-    detail_string = f"""\n#{row_df.transpose()['job_title']}\n"""
-    for col in col_list:
-        detail_string += f"\n##{col}\n{row_df.transpose()[col]}\n"
-    st.write(detail_string)
+def detail(logger:Logger, config, pid, crawl_url):
+    method_name = __name__ + ".detail"
+    try:
+        url = config.get('API_URL')
+        database = config.get('DATABASE')
+        query = f"SELECT * FROM your_table WHERE pid = {pid} AND crawl_url = '{crawl_url}';"
+        row_df = call_dataframe(logger, endpoint=f"{url}/query", database=database, query=query)
+        
+    except Exception as e:
+        logger.log(f"Exception occurred while getting detailed dataframe from api: {e}", flag=1, name=method_name)
 
 ### render charts
 def plot_pie_chart(stack_counts, logger):
@@ -62,9 +66,8 @@ def plot_horizontal_bar_chart(stack_counts,logger):
     st.pyplot(fig)
     logger.log(f"action:load, element:horizontal_bar_chart", flag=4, name=method_name)
 
-
 ### render filters if user wants to filter data and search specific records
-def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logger, columns_to_visualize:dict) -> Tuple[pd.DataFrame, dict]:
+def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visualize:dict, config) -> dict:
     '''
     Generate filters for each column in the dataframe.
     - df: dataframe to filter
@@ -74,11 +77,9 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
     visible_columns = [col for col, show in columns_to_visualize.items() if show]
     num_visible_columns = len(visible_columns)  # True인 열의 개수 저장
     seperator = -1
-    # dataframe에서 첫 줄의 각 원소를 가져와서 해당 원소가 '['로 시작하면 스택형 원소이므로 그 column이름을 stacked_column이라는 이름의 list에 저장.
-    stacked_column = [col for col in df.columns if str(df[col].iloc[0]).startswith('[')]
-    seperator = 0
     # Get the latest search term for the current session
     if search_history is not None and not search_history.empty:
+        seperator = 0
         if len(search_history) == 1:
             latest_search_term = json.loads(search_history.iloc[0]['search_term'])
         else:
@@ -86,12 +87,6 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
     else:
         latest_search_term = {}
     seperator = 1
-    if df.empty or df is None:
-        logger.log(f"Dataframe is empty", flag=1, name=method_name)
-        return None, latest_search_term
-    else:
-        filtered_df = df.copy()
-    seperator = 2
     try:
         # Divide columns into equal widths to display filters horizontally
         #num_columns = len(df.columns)  # Number of columns to filter
@@ -99,71 +94,74 @@ def display_filters(df: pd.DataFrame, search_history: pd.DataFrame, logger:Logge
         if num_visible_columns <= 0:
             logger.log(f"No columns to show", flag=0, name=method_name)
             st.write("No columns selected")
-            return None, latest_search_term
+            return latest_search_term
+        # api에서 stack형 column의 목록을 호출
+        stacked_columns = get_stacked_columns(_logger=logger, endpoint=f"{config.get('API_URL')}/stacked_columns", database=config.get('DATABASE'), table=config.get('TABLE'))
+        # api에서 모든 column의 목록을 호출
+        total_columns = get_column_names(_logger=logger, endpoint=f"{config.get('API_URL')}/columns", database=config.get('DATABASE'), table=config.get('TABLE'))
         columns = st.columns(num_visible_columns)  # Create column containers
         i = 0
-        config = load_config()
-        endpoint_uv = config['API_URL'] + "/unique_values"
         seperator = 3
-        for column in df.columns:
-            with columns[i]:  # Render each filter within its own column   
-                ### if column is 'dev_stacks', show unique stacks in multiselect
-                if column in stacked_column and columns_to_visualize[column]:
-                    seperator = 4
-                    all_stacks = []
-                    for stack in df[column]:
-                        stack_list = ast.literal_eval(stack)
-                        all_stacks.extend(stack_list)
-                    unique_stacks = get_unique_column_values(logger, endpoint_uv, config['DATABASE'], config['TABLE'], column)
-                    if st.session_state.get('apply_last_filter', None):
-                        default_filter = latest_search_term.get(column, [])
-                    else:
-                        default_filter = []
-
-                    selected_stacks = st.multiselect(f"{column}", unique_stacks, default=default_filter)
-                    
-                    if selected_stacks:
-                        filtered_df = filtered_df[filtered_df[column].apply(
-                            lambda x: any(stack in ast.literal_eval(x) for stack in selected_stacks)
-                        )]
+        for column in total_columns:
+            with columns[i]:
+                is_stacked = column in stacked_columns
+                unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), is_stacked=is_stacked)
+                seperator = 4
+                if st.session_state['apply_last_filter']:
+                    default_filter = latest_search_term.get(column, [])
+                else:
+                    default_filter = []
+                
+                selected_stacks = st.multiselect(f"{column}", unique_values, default=default_filter)
+                
+                if selected_stacks:
                     latest_search_term[column] = selected_stacks
-                    if i < num_visible_columns:
-                        i += 1
-                ### if column is not 'dev_stacks', show unique values in multiselect
-                elif columns_to_visualize[column]:# df[column].dtype == 'object':
-                    seperator = 5
-                    unique_values = df[column].unique().tolist()
-                    if None in unique_values:
-                        unique_values = ['None' if v is None else v for v in unique_values]
-                    unique_values = sorted(unique_values)
-                    
-                    if st.session_state['apply_last_filter']:
-                        default_filter = latest_search_term.get(column, [])
-                    else:
-                        default_filter = []
-
-                    selected_values = st.multiselect(f"{column}", unique_values, default=default_filter)
-
-                    if selected_values:
-                        if 'None' in selected_values:
-                            filtered_df = filtered_df[
-                                (filtered_df[column].isin([v for v in selected_values if v != 'None'])) | (filtered_df[column].isna())
-                            ]
-                        else:
-                            filtered_df = filtered_df[filtered_df[column].isin(selected_values)]
-                    latest_search_term[column] = selected_values
-                    if i < num_visible_columns:
-                        i += 1
-        seperator = 6
+                if i < num_visible_columns:
+                    i += 1
+        seperator = 5
         logger.log(f"action:load, element:search_filters", flag=4, name=method_name)
-        return filtered_df, latest_search_term
+        return latest_search_term
 
     except Exception as e:
         logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
         return None, latest_search_term
 
+def generate_dataframe(logger, config, search_terms:dict, is_filtered:bool, data_load_state)->pd.DataFrame:
+    '''
+        load final dataframe given from conditions
+        - logger: logger
+        - config: configurations loaded from config.json
+        - search_terms: if dataframe is to be filtered, use search terms to modify query statement
+        - is_filtered: boolean to configure whether to show filtered dataframe or not
+        - data_load_state: streamlit text widget to tell whether data is loaded or not
+    '''
+    method_name = __name__ + ".display_dataframe"
+    database = config.get('DATABASE')
+    table = config.get('TABLE')
+    query = f"SELECT * FROM {table} WHERE "
+    
+    # create conditions for each column
+    conditions = []
+    for column, values in search_terms.items():
+        # Escape single quotes in values
+        values = [f"'{v.replace("'", "''")}'" for v in values]
+        # Create a condition for each column
+        conditions.append(f"{column} IN ({', '.join(values)})")
+    
+    # join all conditions with AND statement
+    query += ' AND '.join(conditions)
+    url = config.get('API_URL')
+    endpoint_query = f"{url}/query"
+    try:
+        df = call_dataframe(logger, endpoint_query, database, query)
+        data_load_state.text("Data loaded from st.cached_data")
+        return df
+    except Exception as e:
+        logger.log(f"Excpetion occurred while generating dataframe: {e}", flag=1, name=method_name)
+        return None
+
 ### page display
-def display_job_informations(logger, url:str=None, database:str=None, query:str=None):
+def display_job_informations(logger):
     '''
         display job informations retreived from given url
     '''
@@ -172,15 +170,11 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
     method_name = __name__ + ".display_job_informations"
     try:
         config = load_config()
-        if not url:
-            url = config.get("API_URL")
-        if not query:
-            query = f"SELECT * from {config.get('TABLE')}"
-        if not database:
-            database = config.get("DATABASE")
+        url = config.get("API_URL")
+        database = config.get("DATABASE")
         if 'job_info_filtered' not in st.session_state:
             st.session_state['job_info_filtered'] = False
-        
+        table = config.get('TABLE')
         seperator = 0
         st.title("Job Information - Tech Stack Visualizations")
         logger.log(f"action:load, element:title",flag=4, name=method_name)
@@ -190,29 +184,19 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         logger.log(f"action:load, element:data_load_state",flag=4, name=method_name)
         seperator = 1
         
-        ### endpoint로부터 column들의 목록을 먼저 받아온다.
-        endpoint = f"{url}/query"
-        columns = get_column_names(logger, endpoint, database, config['TABLE'])
-        df = get_job_informations(logger, endpoint, database, query)
+        ### endpoint로부터 column들의 목록과 메타데이터를 먼저 받아온다.
+        endpoint_columns = f"{url}/columns"
+        total_columns = get_column_names(logger, endpoint_columns, database, table)
+        endpoint_row_count = f"{url}/row_count"
+        column_length = get_table_row_counts(logger, endpoint_row_count, database, table)
         seperator = 2
 
         ### 검색 기록 받아오기
         endpoint_history = f"{url}/history"
         search_history = get_search_history(endpoint_history, logger)
         if search_history is None or search_history.empty:
-            # logger.log(f"No search history found", flag=1, name=method_name)
             search_history = pd.DataFrame()
         seperator = 3
-
-        ### 데이터가 없을 경우 예외 처리
-        if df is None or df.empty:
-            st.write("No data found")
-            return
-        else:
-            st.session_state['apply_last_filter'] = True
-        visualized_df = df.copy()
-        data_load_state.text("Data loaded from st.cached_data")
-        seperator = 4
         
         top_col1, top_col2 = st.columns(2)
         ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
@@ -222,7 +206,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         columns_to_visualize = {}
         
         ### default를 보여주도록 설정되어 있을 경우
-        for column in visualized_df.columns:
+        for column in total_columns:
             if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
                 columns_to_visualize[column] = True
@@ -238,7 +222,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         with checkbox_expander:
             ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
             if show_default_columns:
-                for column in visualized_df.columns:
+                for column in total_columns:
                     value = default_visualized_column_list[column]
                     column_checkbox = st.checkbox(f"{column}", value=value, key=column)
                     if column_checkbox:
@@ -246,7 +230,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                     else:
                         st.session_state['column_list_to_visualize'][column] = False
             else:
-                for column in visualized_df.columns:
+                for column in total_columns:
                     if st.checkbox(f"{column}", value=True):
                         st.session_state['column_list_to_visualize'][column] = True
         
@@ -261,8 +245,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         if show_filters:
             ### 필터를 보여주도록 선택한 경우
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
-            st.session_state['job_info_filtered'] = True
-            filtered_df, current_filter = display_filters(df, search_history, logger, st.session_state['column_list_to_visualize'])
+            current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
             filter_btn = st.button("필터 적용")
             logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
             reset_filter_btn = st.button("필터 초기화")
@@ -272,6 +255,7 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
             with col1:
                 if filter_btn:
                     logger.log(f"action:click, element:apply_filter_button",flag=4, name=method_name)
+                    st.session_state['job_info_filtered'] = True
                     # 필터 로그 저장
                     save_history_response = save_search_history(endpoint_history, current_filter, logger)
                     if save_history_response.status_code == 200 and save_history_response.json().get("status") == "success":
@@ -280,31 +264,44 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                     else:
                         st.error(f"필터 저장에 실패했습니다. ({save_history_response.status_code})")
                         st.session_state['apply_last_filter'] = False
-                    visualized_df = filtered_df.copy()
                     seperator = 8
             with col2:
                 if reset_filter_btn:
+                    st.session_state['job_info_filtered'] = False
                     logger.log(f"action:click, element:reset_filter_button",flag=4, name=method_name)
                     st.session_state['apply_last_filter'] = False
-                    visualized_df = df.copy()
                     st.success("필터가 초기화되었습니다.")
                     st.rerun()
             seperator = 9
 
             # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
-            st.subheader("필터링된 데이터")
-            filtered_visualized_df = visualized_df.loc[:, visible_columns]
+            search_result_state = st.subheader("검색 결과")
+            if st.session_state.get('job_info_filtered', False):
+                result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
+                
+                ### 최종적으로 필터링된 데이터프레임 시각화
+                for index, row in result_df.iterrows():
+                    col1, col2 = st.columns([10,1])
+                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                    row_df = pd.DataFrame(row)
+                    with col1:
+                        st.table(data=sliced_row_df.transpose())
+                    with col2:
+                        detail_btn = st.button(f"자세히 보기", key=index)
+                        if detail_btn:
+                            detail(row_df, logger)
+                seperator = 10
+            else:
+                result_df = pd.DataFrame()
+                st.write("No search term applied")
             
-            ### 최종적으로 필터링된 데이터프레임 시각화
-            st.dataframe(filtered_visualized_df, use_container_width=True)
-            seperator = 10
         else:
             st.session_state['job_info_filtered'] = False
             st.subheader("전체 데이터")
-            filtered_visualized_df = df.loc[:, visible_columns]
-            
+            #filtered_visualized_df = df.loc[:, visible_columns]
+            result_df = generate_dataframe(logger,config,None,False,data_load_state)
             ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
-            for index, row in df.iterrows():
+            for index, row in result_df.iterrows():
                 col1, col2 = st.columns([10,1])
                 sliced_row_df = pd.DataFrame(row.loc[visible_columns])
                 row_df = pd.DataFrame(row)
@@ -314,7 +311,6 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
                     detail_btn = st.button(f"자세히 보기", key=index)
                     if detail_btn:
                         detail(row_df, logger)
-            #st.dataframe(filtered_visualized_df, use_container_width=True)
             seperator = 11
         
         ### 데이터를 시각화하기 위한 차트
@@ -324,16 +320,8 @@ def display_job_informations(logger, url:str=None, database:str=None, query:str=
         seperator = 12
         
         ### convert stacks to df to visualize counts
-        all_stacks = []
-        if st.session_state['job_info_filtered']:
-            for stack in visualized_df['dev_stacks']:
-                stack_list = ast.literal_eval(stack)  # string to list
-                all_stacks.extend(stack_list)  # combine into single list
-        else:
-            for stack in df['dev_stacks']:
-                stack_list = ast.literal_eval(stack)  # string to list
-                all_stacks.extend(stack_list)  # combine into single list
-        stack_counts = Counter(all_stacks)
+        dev_stacks = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values",database=config.get('DATABASE'), table=config.get('TABLE'), column="dev_stacks",is_stacked=True)
+        stack_counts = Counter(dev_stacks)
         seperator = 13
         
         ### col1 = selected chart, col2 = df of tech stacks with ['stack name', 'count of stacks'] as columns
