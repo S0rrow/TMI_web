@@ -14,7 +14,8 @@ def detail(logger:Logger, config:dict, pid:int, crawl_url:str):
     try:
         url = config.get('API_URL')
         database = config.get('DATABASE')
-        query = f"SELECT * FROM your_table WHERE pid = {pid} AND crawl_url = '{crawl_url}';"
+        table = config.get('TABLE')
+        query = f"SELECT * FROM {table} WHERE pid = {pid} AND crawl_url = '{crawl_url}';"
         row_df = call_dataframe(logger, endpoint=f"{url}/query", database=database, query=query)
         st.dataframe(row_df, use_container_width=True)
     except Exception as e:

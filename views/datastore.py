@@ -119,12 +119,17 @@ def call_dataframe(_logger, endpoint:str, database:str, query:str)->pd.DataFrame
         - database: database name to use
         - query: sql query to execute in database
     '''
-    method_name = __name__ + ".get_job_informations"
+    method_name = __name__ + ".call_dataframe"
     try:
         payload = {"database":f"{database}", "query":f"{query}"}
-        query_result = json.loads(requests.post(endpoint, data=json.dumps(payload)).text)
-        df = pd.DataFrame(query_result)
-        return df
+        response = requests.post(endpoint, data=json.dumps(payload))
+        if response.status_code==200:
+            query_result = json.loads(response.text)
+            df = pd.DataFrame(query_result)
+            return df
+        else:
+            _logger.log(f"API Call returned status code {response.status_code}", flag=1, name=method_name)
+            return None
     except Exception as e:
         _logger.log(f"Exception occurred while getting dataframe: {e}", flag=1, name=method_name)
         return None
