@@ -126,7 +126,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
         return None, latest_search_term
 
-def generate_dataframe(logger, config, search_terms:dict, is_filtered:bool, data_load_state)->pd.DataFrame:
+def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtered:bool, data_load_state)->pd.DataFrame:
     '''
         load final dataframe given from conditions
         - logger: logger
@@ -135,25 +135,31 @@ def generate_dataframe(logger, config, search_terms:dict, is_filtered:bool, data
         - is_filtered: boolean to configure whether to show filtered dataframe or not
         - data_load_state: streamlit text widget to tell whether data is loaded or not
     '''
-    method_name = __name__ + ".display_dataframe"
+    method_name = __name__ + ".generate_dataframe"
     database = config.get('DATABASE')
     table = config.get('TABLE')
     query = f"SELECT * FROM {table} WHERE "
-    
-    # Create conditions for each column
-    conditions = []
-    for column, values in search_terms.items():
-        # Escape single quotes in values
-        escaped_values = ["'" + value.replace("'", "''") + "'" for value in values]
-        # Create a condition for each column
-        conditions.append(column + " IN (" + ', '.join(escaped_values) + ")")
-    
-    # join all conditions with AND statement
-    query += ' AND '.join(conditions)
+    if is_filtered:
+        # Create conditions for each column
+        conditions = []
+        for column, values in search_terms.items():
+            # Escape single quotes in values
+            escaped_values = ["'" + value.replace("'", "''") + "'" for value in values]
+            # Create a condition for each column
+            conditions.append(column + " IN (" + ', '.join(escaped_values) + ")")
+        
+        # join all conditions with AND statement
+        query += ' AND '.join(conditions)
+    else:
+        query = f"SELECT * FROM {table}"
     url = config.get('API_URL')
     endpoint_query = f"{url}/query"
     try:
         df = call_dataframe(logger, endpoint_query, database, query)
+        if df.empty or df is None:
+            logger.log(f"dataframe is empty: {e}", flag=0, name=method_name)
+            data_load_state.text("No data found.")
+            return None
         data_load_state.text("Data loaded from st.cached_data")
         return df
     except Exception as e:
@@ -229,13 +235,13 @@ def display_job_informations(logger):
                     value = default_visualized_column_list[column]
                     column_checkbox = st.checkbox(f"{column}", value=value, key=column)
                     if column_checkbox:
-                        columns_to_visualize[column] = True
+                        st.session_state['column_list_to_visualize'][column] = True
                     else:
-                        columns_to_visualize[column] = False
+                        st.session_state['column_list_to_visualize'][column] = False
             else:
                 for column in total_columns:
                     if st.checkbox(f"{column}", value=True):
-                        columns_to_visualize[column] = True
+                        st.session_state['column_list_to_visualize'][column] = True
         
         ### 필터 옵션 표시 여부
         with top_col2:
@@ -243,12 +249,12 @@ def display_job_informations(logger):
             logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
         seperator = 6
         
-        visible_columns = [col for col, show in columns_to_visualize.items() if show]
+        visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
         
         if show_filters:
             ### 필터를 보여주도록 선택한 경우
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
-            current_filter = display_filters(logger, search_history, columns_to_visualize, config)
+            current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
             filter_btn = st.button("필터 적용")
             logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
             reset_filter_btn = st.button("필터 초기화")
@@ -302,7 +308,7 @@ def display_job_informations(logger):
             st.session_state['job_info_filtered'] = False
             st.subheader("전체 데이터")
             #filtered_visualized_df = df.loc[:, visible_columns]
-            result_df = generate_dataframe(logger,config,None,False,data_load_state)
+            result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
             ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
             for index, row in result_df.iterrows():
                 col1, col2 = st.columns([10,1])
