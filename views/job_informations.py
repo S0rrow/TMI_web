@@ -102,7 +102,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         columns = st.columns(num_visible_columns)  # Create column containers
         i = 0
         seperator = 3
-        for column in total_columns:
+        for column in visible_columns:
             with columns[i]:
                 is_stacked = column in stacked_columns
                 # logger.log(f"column name:{column}, is_stacked:{is_stacked}",flag=0, name=method_name)
@@ -113,7 +113,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
                     default_filter = latest_search_term.get(column, [])
                 else:
                     default_filter = []
-                logger.log(f"default_filter:{default_filter}", flag=0, name=method_name)
+                #logger.log(f"default_filter:{default_filter}", flag=0, name=method_name)
                 selected_stacks = st.multiselect(f"{column}", unique_values, default=default_filter)
                 
                 if selected_stacks:
@@ -149,16 +149,17 @@ def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtere
             escaped_values = ["'" + value.replace("'", "''") + "'" for value in values]
             # Create a condition for each column
             conditions.append(column + " IN (" + ', '.join(escaped_values) + ")")
-        
         # join all conditions with AND statement
         query += ' AND '.join(conditions)
+        if len(conditions) == 0:
+            query = f"SELECT * FROM {table}"
     else:
         query = f"SELECT * FROM {table}"
     url = config.get('API_URL')
     endpoint_query = f"{url}/query"
     try:
         df = call_dataframe(logger, endpoint_query, database, query)
-        if df.empty or df is None:
+        if df is None or df.empty:
             logger.log(f"dataframe is empty: {e}", flag=0, name=method_name)
             data_load_state.text("No data found.")
             return None
@@ -292,17 +293,20 @@ def display_job_informations(logger):
                 ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
                 seperator = 10
                 result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
-                
-                for index, row in result_df.iterrows():
-                    col1, col2 = st.columns([10,1])
-                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                    row_df = pd.DataFrame(row)
-                    with col1:
-                        st.table(data=sliced_row_df.transpose())
-                    with col2:
-                        detail_btn = st.button(f"자세히 보기", key=index)
-                        if detail_btn:
-                            detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
+                if result_df is None or result_df.empty:
+                    result_df = pd.DataFrame()
+                    st.write("No result found.")
+                else:
+                    for index, row in result_df.iterrows():
+                        col1, col2 = st.columns([10,1])
+                        sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                        row_df = pd.DataFrame(row)
+                        with col1:
+                            st.table(data=sliced_row_df.transpose())
+                        with col2:
+                            detail_btn = st.button(f"자세히 보기", key=index)
+                            if detail_btn:
+                                detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             else:
                 ### 버튼이 눌리지 않았을 경우
                 result_df = pd.DataFrame()
@@ -315,17 +319,21 @@ def display_job_informations(logger):
             #filtered_visualized_df = df.loc[:, visible_columns]
             result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
             
-            ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
-            for index, row in result_df.iterrows():
-                col1, col2 = st.columns([10,1])
-                sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                row_df = pd.DataFrame(row)
-                with col1:
-                    st.table(data=sliced_row_df.transpose())
-                with col2:
-                    detail_btn = st.button(f"자세히 보기", key=index)
-                    if detail_btn:
-                        detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
+            if result_df is None or result_df.empty:
+                result_df = pd.DataFrame()
+                st.write("No result found.")
+            else:
+                ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
+                for index, row in result_df.iterrows():
+                    col1, col2 = st.columns([10,1])
+                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                    row_df = pd.DataFrame(row)
+                    with col1:
+                        st.table(data=sliced_row_df.transpose())
+                    with col2:
+                        detail_btn = st.button(f"자세히 보기", key=index)
+                        if detail_btn:
+                            detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             seperator = 12
         
         ### 데이터를 시각화하기 위한 차트
