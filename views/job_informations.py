@@ -215,7 +215,7 @@ def display_job_informations(logger):
                 columns_to_visualize[column] = False
         show_default_columns = st.session_state.get('show_default_columns', False)
 
-        ### 그게 아니라 선택을 수정한 기록이 있을 경우
+        ### 선택을 수정한 기록이 있을 경우
         if 'column_list_to_visualize' not in st.session_state:
             st.session_state['column_list_to_visualize'] = columns_to_visualize
 
@@ -226,13 +226,13 @@ def display_job_informations(logger):
                     value = default_visualized_column_list[column]
                     column_checkbox = st.checkbox(f"{column}", value=value, key=column)
                     if column_checkbox:
-                        st.session_state['column_list_to_visualize'][column] = True
+                        columns_to_visualize[column] = True
                     else:
-                        st.session_state['column_list_to_visualize'][column] = False
+                        columns_to_visualize[column] = False
             else:
                 for column in total_columns:
                     if st.checkbox(f"{column}", value=True):
-                        st.session_state['column_list_to_visualize'][column] = True
+                        columns_to_visualize[column] = True
         
         ### 필터 옵션 표시 여부
         with top_col2:
@@ -240,12 +240,12 @@ def display_job_informations(logger):
             logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
         seperator = 6
         
-        visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
+        visible_columns = [col for col, show in columns_to_visualize.items() if show]
         
         if show_filters:
             ### 필터를 보여주도록 선택한 경우
             logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
-            current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
+            current_filter = display_filters(logger, search_history, columns_to_visualize, config)
             filter_btn = st.button("필터 적용")
             logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
             reset_filter_btn = st.button("필터 초기화")
