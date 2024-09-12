@@ -130,7 +130,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
         return latest_search_term
 
-def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtered:bool, data_load_state)->pd.DataFrame:
+def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtered:bool, limit:int, offset:int, data_load_state)->pd.DataFrame:
     '''
         load final dataframe given from conditions
         - logger: logger
@@ -154,9 +154,9 @@ def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtere
         # join all conditions with AND statement
         query += ' AND '.join(conditions)
         if len(conditions) == 0:
-            query = f"SELECT * FROM {table}"
+            query = f"SELECT * FROM {table} LIMIT {limit} OFFSET {offset}"
     else:
-        query = f"SELECT * FROM {table}"
+        query = f"SELECT * FROM {table} LIMIT {limit} OFFSET {offset}"
     url = config.get('API_URL')
     endpoint_query = f"{url}/query"
     try:
@@ -203,20 +203,6 @@ def display_job_informations(logger):
         seperator = 2
         search_tab, charts_tab = st.tabs(['Search', 'Charts'])
         with search_tab:
-            ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
-            total_row_count = get_table_row_counts(logger, endpoint_row_count, database, table) # total number of rows
-            job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
-            num_pages = math.ceil(total_row_count / job_infos_view_count)
-
-            # 페이지 탭 생성
-            job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
-            
-            for index in range(num_pages):
-                with job_infos_view_tabs[index]:
-                    offset = index * job_infos_view_count
-                    limit = job_infos_view_count if (offset + job_infos_view_count) <= total_row_count else total_row_count - offset
-                    st.write(f"offset:{offset}, limit:{limit}")
-
             ### 검색 기록 받아오기
             endpoint_history = f"{url}/history"
             search_history = get_search_history(endpoint_history, logger)
@@ -274,6 +260,7 @@ def display_job_informations(logger):
             if show_filters:
                 ### 필터를 보여주도록 선택한 경우
                 logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
+                
                 current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
                 filter_btn = st.button("필터 적용")
                 logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
@@ -306,26 +293,38 @@ def display_job_informations(logger):
                 # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
                 search_result_state = st.subheader("검색 결과")
                 if st.session_state.get('job_info_filtered', False):
-                    ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
-                    seperator = 10
-                    result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
-                    if result_df is None or result_df.empty:
-                        result_df = pd.DataFrame()
-                        st.write("No result found.")
-                    else:
-                        for index, row in result_df.iterrows():
-                            col1, col2 = st.columns([10,1])
-                            sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                            row_df = pd.DataFrame(row).transpose()
-                            with col1:
-                                st.table(data=sliced_row_df.transpose())
-                            with col2:
-                                detail_btn = st.button(f"자세히 보기", key=index)
-                                if detail_btn:
-                                    logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
-                                    pid = int(row_df['pid'].values[0])
-                                    crawl_url = str(row_df['crawl_url'].values[0])
-                                    detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
+                    ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
+                    filtered_row_count = get_table_row_counts(logger, endpoint_row_count, database, table, current_filter) # total number of rows
+                    job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
+                    num_pages = math.ceil(filtered_row_count / job_infos_view_count)
+
+                    # 페이지 탭 생성
+                    job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
+                    
+                    for index in range(num_pages):
+                        with job_infos_view_tabs[index]:
+                            offset = index * job_infos_view_count
+                            limit = job_infos_view_count if (offset + job_infos_view_count) <= filtered_row_count else filtered_row_count - offset
+                            ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
+                            seperator = 10
+                            result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state, limit=limit, offset=offset)
+                            if result_df is None or result_df.empty:
+                                result_df = pd.DataFrame()
+                                st.write("No result found.")
+                            else:
+                                for index, row in result_df.iterrows():
+                                    col1, col2 = st.columns([10,1])
+                                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                                    row_df = pd.DataFrame(row).transpose()
+                                    with col1:
+                                        st.table(data=sliced_row_df.transpose())
+                                    with col2:
+                                        detail_btn = st.button(f"자세히 보기", key=index)
+                                        if detail_btn:
+                                            logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
+                                            pid = int(row_df['pid'].values[0])
+                                            crawl_url = str(row_df['crawl_url'].values[0])
+                                            detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
                 else:
                     ### 버튼이 눌리지 않았을 경우
                     result_df = pd.DataFrame()
@@ -335,28 +334,39 @@ def display_job_informations(logger):
                 seperator = 11
                 st.session_state['job_info_filtered'] = False
                 st.subheader("전체 데이터")
-                #filtered_visualized_df = df.loc[:, visible_columns]
-                result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
+                ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
+                total_row_count = get_table_row_counts(logger, endpoint_row_count, database, table) # total number of rows
+                job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
+                num_pages = math.ceil(total_row_count / job_infos_view_count)
+
+                # 페이지 탭 생성
+                job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
                 
-                if result_df is None or result_df.empty:
-                    result_df = pd.DataFrame()
-                    st.write("No result found.")
-                else:
-                    ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
-                    for index, row in result_df.iterrows():
-                        col1, col2 = st.columns([10,1])
-                        sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                        row_df = pd.DataFrame(row).transpose()
-                        with col1:
-                            st.table(data=sliced_row_df.transpose())
-                        with col2:
-                            detail_btn = st.button(f"자세히 보기", key=index)
-                            if detail_btn:
-                                logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
-                                pid = int(row_df['pid'].values[0])
-                                crawl_url = str(row_df['crawl_url'].values[0])
-                                detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
-                seperator = 12
+                for index in range(num_pages):
+                    with job_infos_view_tabs[index]:
+                        offset = index * job_infos_view_count
+                        limit = job_infos_view_count if (offset + job_infos_view_count) <= total_row_count else total_row_count - offset
+                        result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state, limit=limit, offset=offset)
+                        
+                        if result_df is None or result_df.empty:
+                            result_df = pd.DataFrame()
+                            st.write("No result found.")
+                        else:
+                            ### 전체 데이터프레임에서 특정 열만 선택해 시각화
+                            for index, row in result_df.iterrows():
+                                col1, col2 = st.columns([10,1])
+                                sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                                row_df = pd.DataFrame(row).transpose()
+                                with col1:
+                                    st.table(data=sliced_row_df.transpose())
+                                with col2:
+                                    detail_btn = st.button(f"자세히 보기", key=index)
+                                    if detail_btn:
+                                        logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
+                                        pid = int(row_df['pid'].values[0])
+                                        crawl_url = str(row_df['crawl_url'].values[0])
+                                        detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
+                        seperator = 12
 
         with charts_tab:
             ### 데이터를 시각화하기 위한 차트

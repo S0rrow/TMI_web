@@ -171,15 +171,36 @@ def get_column_names(_logger, endpoint:str, database:str, table:str)->list:
         return None
 
 ### get row count of a table   
-def get_table_row_counts(_logger, endpoint:str, database:str, table:str)->int:
+def get_table_row_counts(_logger, endpoint:str, database:str, table:str, search_terms:dict=None)->int:
     method_name = __name__ + ".get_table_row_counts"
     try:
-        # row count
-        response = requests.get(endpoint, params={"database":database, "table":table})
-        # check if result is not empty and status code is 200
-        if response.status_code == 200 and response.text:
-            result = json.loads(response.text)
-            return int(result['row_count'])
+        if not search_terms:
+            # row count
+            query = f"SELECT COUNT(*) FROM {table}"
+            payload = {"database":database, "query":query}
+            response = requests.post(endpoint, data=json.dumps(payload))
+            # check if result is not empty and status code is 200
+            if response.status_code == 200 and response.text:
+                result = json.loads(response.text)
+                return int(result['row_count'])
+        else:
+            query = f"SELECT COUNT(*) FROM {table} WHERE "
+            # Create conditions for each column
+            conditions = []
+            for column, values in search_terms.items():
+                # Escape single quotes in values
+                escaped_values = ["'" + value.replace("'", "''") + "'" for value in values]
+                # Create a condition for each column
+                conditions.append(column + " IN (" + ', '.join(escaped_values) + ")")
+            # join all conditions with AND statement
+            query += ' AND '.join(conditions)
+            if len(conditions) == 0:
+                query = f"SELECT COUNT(*) FROM {table}"
+            payload = {"database":database, "query":query}
+            response = requests.post(endpoint, data=json.dumps(payload))
+            if response.status_code == 200 and response.text:
+                result = json.loads(response.text)
+                return int(result['row_count'])
     except Exception as e:
         _logger.log(f"Exception occurred while counting rows from table {table}: {e}", flag=1, name=method_name)
         return None
