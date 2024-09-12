@@ -203,6 +203,7 @@ def display_job_informations(logger):
         seperator = 2
         search_tab, charts_tab = st.tabs(['Search', 'Charts'])
         with search_tab:
+            logger.log(f"action:load, element:search_tab",flag=4, name=method_name)
             ### 검색 기록 받아오기
             endpoint_history = f"{url}/history"
             search_history = get_search_history(endpoint_history, logger)
@@ -214,6 +215,7 @@ def display_job_informations(logger):
             ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
             with top_col1:
                 checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
+                logger.log(f"action:load, element:checkbox_expander",flag=4, name=method_name)
             default_visualized_column_list = {}
             columns_to_visualize = {}
             seperator = 4
@@ -236,6 +238,7 @@ def display_job_informations(logger):
 
             with checkbox_expander:
                 ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
+                logger.log(f"action:click, element:checkbox_expander",flag=4, name=method_name)
                 if show_default_columns:
                     for column in total_columns:
                         value = default_visualized_column_list[column]
@@ -291,19 +294,24 @@ def display_job_informations(logger):
                 seperator = 9
 
                 # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
-                search_result_state = st.subheader("검색 결과")
+                col1, col2 = st.columns([8,2])
+                with col1:
+                    search_result_state = st.subheader("검색 결과")
+                with col2:
+                    job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
+                
                 if st.session_state.get('job_info_filtered', False):
                     ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
                     filtered_row_count = get_table_row_counts(logger, endpoint_row_count, database, table, current_filter) # total number of rows
-                    job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
                     num_pages = math.ceil(filtered_row_count / job_infos_view_count)
 
                     # 페이지 탭 생성
                     job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
-                    
                     for index in range(num_pages):
                         with job_infos_view_tabs[index]:
+                            # 시작점
                             offset = index * job_infos_view_count
+                            # row를 몇개까지 출력할지
                             limit = job_infos_view_count if (offset + job_infos_view_count) <= filtered_row_count else filtered_row_count - offset
                             ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
                             seperator = 10
@@ -312,16 +320,16 @@ def display_job_informations(logger):
                                 result_df = pd.DataFrame()
                                 st.write("No result found.")
                             else:
-                                for index, row in result_df.iterrows():
+                                for row_index, row in result_df.iterrows():
                                     col1, col2 = st.columns([10,1])
                                     sliced_row_df = pd.DataFrame(row.loc[visible_columns])
                                     row_df = pd.DataFrame(row).transpose()
                                     with col1:
-                                        st.table(data=sliced_row_df.transpose())
+                                        st.table(data=sliced_row_df.transpose().reset_index(drop=True))
                                     with col2:
-                                        detail_btn = st.button(f"자세히 보기", key=index)
+                                        detail_btn = st.button(f"자세히 보기", key=row_index+offset)
                                         if detail_btn:
-                                            logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
+                                            logger.log(f"action:click, element:detail_button_{row_index}",flag=4, name=method_name)
                                             pid = int(row_df['pid'].values[0])
                                             crawl_url = str(row_df['crawl_url'].values[0])
                                             detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
@@ -333,10 +341,14 @@ def display_job_informations(logger):
             else:
                 seperator = 11
                 st.session_state['job_info_filtered'] = False
-                st.subheader("전체 데이터")
+                col1, col2 = st.columns([8,2])
+                with col1:
+                    st.subheader("전체 데이터")
+                with col2:
+                    job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
+                
                 ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
                 total_row_count = get_table_row_counts(logger, endpoint_row_count, database, table) # total number of rows
-                job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
                 num_pages = math.ceil(total_row_count / job_infos_view_count)
 
                 # 페이지 탭 생성
@@ -370,6 +382,7 @@ def display_job_informations(logger):
 
         with charts_tab:
             ### 데이터를 시각화하기 위한 차트
+            logger.log(f"action:load, element:charts_tab",flag=4, name=method_name)
             
             ### select type of chart to show
             chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
