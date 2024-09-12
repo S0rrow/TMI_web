@@ -90,7 +90,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
     try:
         # Divide columns into equal widths to display filters horizontally
         #num_columns = len(df.columns)  # Number of columns to filter
-        logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
+        # logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
         if num_visible_columns <= 0:
             logger.log(f"No columns to show", flag=0, name=method_name)
             st.write("No columns selected")
@@ -105,7 +105,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         for column in total_columns:
             with columns[i]:
                 is_stacked = column in stacked_columns
-                unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), is_stacked=is_stacked)
+                unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), column=column,is_stacked=is_stacked)
                 seperator = 4
                 if st.session_state['apply_last_filter']:
                     default_filter = latest_search_term.get(column, [])
@@ -213,7 +213,7 @@ def display_job_informations(logger):
         seperator = 4
         
         ### default를 보여주도록 설정되어 있을 경우
-        logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
+        # logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
         for column in total_columns:
             if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
