@@ -97,6 +97,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
             return latest_search_term
         # api에서 stack형 column의 목록을 호출
         stacked_columns = get_stacked_columns(_logger=logger, endpoint=f"{config.get('API_URL')}/stacked_columns", database=config.get('DATABASE'), table=config.get('TABLE'))
+        logger.log(f"stacked_column_list:{stacked_columns}", flag=0, name=method_name)
         # api에서 모든 column의 목록을 호출
         total_columns = get_column_names(_logger=logger, endpoint=f"{config.get('API_URL')}/columns", database=config.get('DATABASE'), table=config.get('TABLE'))
         columns = st.columns(num_visible_columns)  # Create column containers
@@ -105,7 +106,9 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         for column in total_columns:
             with columns[i]:
                 is_stacked = column in stacked_columns
+                logger.log(f"column name:{column}, is_stacked:{is_stacked}",flag=0, name=method_name)
                 unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), column=column,is_stacked=is_stacked)
+                
                 seperator = 4
                 if st.session_state['apply_last_filter']:
                     default_filter = latest_search_term.get(column, [])
@@ -309,6 +312,7 @@ def display_job_informations(logger):
             st.subheader("전체 데이터")
             #filtered_visualized_df = df.loc[:, visible_columns]
             result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
+            
             ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
             for index, row in result_df.iterrows():
                 col1, col2 = st.columns([10,1])
