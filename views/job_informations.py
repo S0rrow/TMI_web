@@ -212,9 +212,10 @@ def display_job_informations(logger):
             job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
             
             for index in range(num_pages):
-                start_row = index * job_infos_view_count
-                end_row = min(start_row + job_infos_view_count, total_row_count)
-                st.write(f"start:{start_row}, end_row:{end_row}")
+                with job_infos_view_tabs[index]:
+                    offset = index * job_infos_view_count
+                    limit = job_infos_view_count if (offset + job_infos_view_count) <= total_row_count else total_row_count - offset
+                    st.write(f"offset:{offset}, limit:{limit}")
 
             ### 검색 기록 받아오기
             endpoint_history = f"{url}/history"
