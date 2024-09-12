@@ -365,16 +365,16 @@ def display_job_informations(logger):
                             st.write("No result found.")
                         else:
                             ### 전체 데이터프레임에서 특정 열만 선택해 시각화
-                            for index, row in result_df.iterrows():
+                            for row_index, row in result_df.iterrows():
                                 col1, col2 = st.columns([10,1])
                                 sliced_row_df = pd.DataFrame(row.loc[visible_columns])
                                 row_df = pd.DataFrame(row).transpose()
                                 with col1:
                                     st.table(data=sliced_row_df.transpose())
                                 with col2:
-                                    detail_btn = st.button(f"자세히 보기", key=index)
+                                    detail_btn = st.button(f"자세히 보기", key=row_index+offset)
                                     if detail_btn:
-                                        logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
+                                        logger.log(f"action:click, element:detail_button_{row_index}",flag=4, name=method_name)
                                         pid = int(row_df['pid'].values[0])
                                         crawl_url = str(row_df['crawl_url'].values[0])
                                         detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
