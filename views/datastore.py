@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json, requests
+import json, requests, ast
 from datetime import datetime
 from .utils import Logger
 
@@ -218,3 +218,15 @@ def get_stacked_columns(_logger, endpoint:str, database:str, table:str)->list:
     except Exception as e:
         _logger.log(f"Exception occurred while getting list of stacked columns from table {table}: {e}", flag=1, name=method_name)
         return None
+    
+def get_elements_from_stacked_element(logger:Logger, df:pd.DataFrame, column:str)->list:
+    all_elems = []
+    for row in df[column]:
+        try:
+            col_elem_list = ast.literal_eval(row)
+        except (SyntaxError, ValueError) as e:
+            logger.log(f"Error parsing row: {row}, error: {e}", flag=1, name=method_name)
+            continue
+        all_elems.extend(col_elem_list)
+    result = list(set(all_elems))
+    return result

@@ -1,23 +1,57 @@
 import streamlit as st
 import pandas as pd
-import json, math
+import json, math, os
 import matplotlib.pyplot as plt
 from collections import Counter
 from .utils import Logger
-from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, get_stacked_columns
+from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, get_stacked_columns, get_elements_from_stacked_element
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
 def detail(logger:Logger, config:dict, pid:int, crawl_url:str):
     method_name = __name__ + ".detail"
     logger.log(f"action:load, element:detail_page_{pid}",flag=4, name=method_name)
+    parent_path = os.path.dirname(os.path.abspath(__file__))
+    data_load_state = st.text("Loading data...")
     try:
         url = config.get('API_URL')
         database = config.get('DATABASE')
         table = config.get('TABLE')
         query = f"SELECT * FROM {table} WHERE pid = {pid} AND crawl_url = '{crawl_url}';"
         row_df = call_dataframe(logger, endpoint=f"{url}/query", database=database, query=query)
-        st.dataframe(row_df, use_container_width=True)
+        data_load_state.text(f"Data loaded.")
+        col1, col2 = st.columns([2,8])
+        with col1:
+            st.logo(f"{parent_path}/../images/horizontal.png", icon_image=f"{parent_path}/../images/logo.png")
+        with col2:
+            st.header(f"{row_df['job_title']}")
+            st.subheader(f"{row_df['company_name']}")
+        st.subheader(f"직무 유형")
+        job_categories = get_elements_from_stacked_element(logger, row_df, 'job_categories')
+        for job_category in job_categories:
+            st.markdown(f"- {job_category}")
+        
+        st.subheader(f"산업 유형")
+        industry_types = get_elements_from_stacked_element(logger, row_df, 'industry_types')
+        for industry_type in industry_types:
+            st.markdown(f"- {industry_type}")
+        
+        st.subheader(f"Dev Stacks")
+        dev_stacks = get_elements_from_stacked_element(logger, row_df, 'dev_stacks')
+        for stack in dev_stacks:
+            st.markdown(f"- {stack}")
+        
+        st.subheader(f"직무 요구사항")
+        job_requirements = get_elements_from_stacked_element(logger, row_df, 'job_requirements')
+        for job_requirement in job_requirements:
+            st.markdown(f"- {job_requirement}")
+        
+        st.subheader(f"우대사항")
+        job_prefers = get_elements_from_stacked_element(logger, row_df, 'job_prefers')
+        for job_prefer in job_prefers:
+            st.markdown(f"- {job_prefer}")
+        
+        
     except Exception as e:
         st.write(f"Exception:{e}")
         logger.log(f"Exception occurred while getting detailed dataframe from api: {e}", flag=1, name=method_name)
