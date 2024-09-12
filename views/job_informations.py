@@ -140,13 +140,13 @@ def generate_dataframe(logger, config, search_terms:dict, is_filtered:bool, data
     table = config.get('TABLE')
     query = f"SELECT * FROM {table} WHERE "
     
-    # create conditions for each column
+    # Create conditions for each column
     conditions = []
     for column, values in search_terms.items():
         # Escape single quotes in values
-        escaped_values = [f"'{value.replace('\'', '\'\'')}'" for value in values]
+        escaped_values = ["'" + value.replace("'", "''") + "'" for value in values]
         # Create a condition for each column
-        conditions.append(f"{column} IN ({', '.join(escaped_values)})")
+        conditions.append(column + " IN (" + ', '.join(escaped_values) + ")")
     
     # join all conditions with AND statement
     query += ' AND '.join(conditions)
