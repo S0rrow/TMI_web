@@ -370,7 +370,7 @@ def display_job_informations(logger):
                                 sliced_row_df = pd.DataFrame(row.loc[visible_columns])
                                 row_df = pd.DataFrame(row).transpose()
                                 with col1:
-                                    st.table(data=sliced_row_df.transpose())
+                                    st.table(data=sliced_row_df.transpose().reset_index(drop=True))
                                 with col2:
                                     detail_btn = st.button(f"자세히 보기", key=row_index+offset)
                                     if detail_btn:
