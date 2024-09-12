@@ -202,103 +202,134 @@ def display_job_informations(logger):
         endpoint_row_count = f"{url}/row_count"
         column_length = get_table_row_counts(logger, endpoint_row_count, database, table)
         seperator = 2
+        search_tab, charts_tab = st.tabs(['Search', 'Charts'])
+        with search_tab:    
+            ### 검색 기록 받아오기
+            endpoint_history = f"{url}/history"
+            search_history = get_search_history(endpoint_history, logger)
+            if search_history is None or search_history.empty:
+                search_history = pd.DataFrame()
+            seperator = 3
+            
+            top_col1, top_col2 = st.columns(2)
+            ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
+            with top_col1:
+                checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
+            default_visualized_column_list = {}
+            columns_to_visualize = {}
+            seperator = 4
+            
+            ### default를 보여주도록 설정되어 있을 경우
+            # logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
+            for column in total_columns:
+                if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
+                    default_visualized_column_list[column] = True
+                    columns_to_visualize[column] = True
+                else:
+                    default_visualized_column_list[column] = False
+                    columns_to_visualize[column] = False
+            show_default_columns = st.session_state.get('show_default_columns', False)
+            seperator = 5
+            
+            ### 선택을 수정한 기록이 있을 경우
+            if 'column_list_to_visualize' not in st.session_state:
+                st.session_state['column_list_to_visualize'] = columns_to_visualize
 
-        ### 검색 기록 받아오기
-        endpoint_history = f"{url}/history"
-        search_history = get_search_history(endpoint_history, logger)
-        if search_history is None or search_history.empty:
-            search_history = pd.DataFrame()
-        seperator = 3
-        
-        top_col1, top_col2 = st.columns(2)
-        ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
-        with top_col1:
-            checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
-        default_visualized_column_list = {}
-        columns_to_visualize = {}
-        seperator = 4
-        
-        ### default를 보여주도록 설정되어 있을 경우
-        # logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
-        for column in total_columns:
-            if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
-                default_visualized_column_list[column] = True
-                columns_to_visualize[column] = True
-            else:
-                default_visualized_column_list[column] = False
-                columns_to_visualize[column] = False
-        show_default_columns = st.session_state.get('show_default_columns', False)
-        seperator = 5
-        
-        ### 선택을 수정한 기록이 있을 경우
-        if 'column_list_to_visualize' not in st.session_state:
-            st.session_state['column_list_to_visualize'] = columns_to_visualize
-
-        with checkbox_expander:
-            ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
-            if show_default_columns:
-                for column in total_columns:
-                    value = default_visualized_column_list[column]
-                    column_checkbox = st.checkbox(f"{column}", value=value, key=column)
-                    if column_checkbox:
-                        st.session_state['column_list_to_visualize'][column] = True
-                    else:
-                        st.session_state['column_list_to_visualize'][column] = False
-            else:
-                for column in total_columns:
-                    if st.checkbox(f"{column}", value=True):
-                        st.session_state['column_list_to_visualize'][column] = True
-        
-        ### 필터 옵션 표시 여부
-        with top_col2:
-            show_filters = st.checkbox("필터 옵션 표시", value=False)
-            logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
-        seperator = 6
-        
-        visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
-        
-        if show_filters:
-            ### 필터를 보여주도록 선택한 경우
-            logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
-            current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
-            filter_btn = st.button("필터 적용")
-            logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
-            reset_filter_btn = st.button("필터 초기화")
-            logger.log(f"action:load, element:reset_filter_button",flag=4, name=method_name)
-            seperator = 7
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                if filter_btn:
-                    logger.log(f"action:click, element:apply_filter_button",flag=4, name=method_name)
-                    st.session_state['job_info_filtered'] = True
-                    # 필터 로그 저장
-                    save_history_response = save_search_history(endpoint_history, current_filter, logger)
-                    if save_history_response.status_code == 200 and save_history_response.json().get("status") == "success":
-                        st.success("필터가 저장되었습니다.")
-                        st.session_state['apply_last_filter'] = True
-                    else:
-                        st.error(f"필터 저장에 실패했습니다. ({save_history_response.status_code})")
+            with checkbox_expander:
+                ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
+                if show_default_columns:
+                    for column in total_columns:
+                        value = default_visualized_column_list[column]
+                        column_checkbox = st.checkbox(f"{column}", value=value, key=column)
+                        if column_checkbox:
+                            st.session_state['column_list_to_visualize'][column] = True
+                        else:
+                            st.session_state['column_list_to_visualize'][column] = False
+                else:
+                    for column in total_columns:
+                        if st.checkbox(f"{column}", value=True):
+                            st.session_state['column_list_to_visualize'][column] = True
+            
+            ### 필터 옵션 표시 여부
+            with top_col2:
+                show_filters = st.checkbox("필터 옵션 표시", value=False)
+                logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
+            seperator = 6
+            
+            visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
+            
+            if show_filters:
+                ### 필터를 보여주도록 선택한 경우
+                logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
+                current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
+                filter_btn = st.button("필터 적용")
+                logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
+                reset_filter_btn = st.button("필터 초기화")
+                logger.log(f"action:load, element:reset_filter_button",flag=4, name=method_name)
+                seperator = 7
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    if filter_btn:
+                        logger.log(f"action:click, element:apply_filter_button",flag=4, name=method_name)
+                        st.session_state['job_info_filtered'] = True
+                        # 필터 로그 저장
+                        save_history_response = save_search_history(endpoint_history, current_filter, logger)
+                        if save_history_response.status_code == 200 and save_history_response.json().get("status") == "success":
+                            st.success("필터가 저장되었습니다.")
+                            st.session_state['apply_last_filter'] = True
+                        else:
+                            st.error(f"필터 저장에 실패했습니다. ({save_history_response.status_code})")
+                            st.session_state['apply_last_filter'] = False
+                        seperator = 8
+                with col2:
+                    if reset_filter_btn:
+                        st.session_state['job_info_filtered'] = False
+                        logger.log(f"action:click, element:reset_filter_button",flag=4, name=method_name)
                         st.session_state['apply_last_filter'] = False
-                    seperator = 8
-            with col2:
-                if reset_filter_btn:
-                    st.session_state['job_info_filtered'] = False
-                    logger.log(f"action:click, element:reset_filter_button",flag=4, name=method_name)
-                    st.session_state['apply_last_filter'] = False
-                    st.success("필터가 초기화되었습니다.")
-                    st.rerun()
-            seperator = 9
+                        st.success("필터가 초기화되었습니다.")
+                        st.rerun()
+                seperator = 9
 
-            # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
-            search_result_state = st.subheader("검색 결과")
-            if st.session_state.get('job_info_filtered', False):
-                ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
-                seperator = 10
-                result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
+                # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
+                search_result_state = st.subheader("검색 결과")
+                if st.session_state.get('job_info_filtered', False):
+                    ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
+                    seperator = 10
+                    result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
+                    if result_df is None or result_df.empty:
+                        result_df = pd.DataFrame()
+                        st.write("No result found.")
+                    else:
+                        for index, row in result_df.iterrows():
+                            col1, col2 = st.columns([10,1])
+                            sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                            row_df = pd.DataFrame(row).transpose()
+                            with col1:
+                                st.table(data=sliced_row_df.transpose())
+                            with col2:
+                                detail_btn = st.button(f"자세히 보기", key=index)
+                                if detail_btn:
+                                    logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
+                                    pid = int(row_df['pid'].values[0])
+                                    crawl_url = str(row_df['crawl_url'].values[0])
+                                    detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
+                else:
+                    ### 버튼이 눌리지 않았을 경우
+                    result_df = pd.DataFrame()
+                    st.write("No search term applied")
+                
+            else:
+                seperator = 11
+                st.session_state['job_info_filtered'] = False
+                st.subheader("전체 데이터")
+                #filtered_visualized_df = df.loc[:, visible_columns]
+                result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
+                
                 if result_df is None or result_df.empty:
                     result_df = pd.DataFrame()
                     st.write("No result found.")
                 else:
+                    ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
                     for index, row in result_df.iterrows():
                         col1, col2 = st.columns([10,1])
                         sliced_row_df = pd.DataFrame(row.loc[visible_columns])
@@ -312,69 +343,40 @@ def display_job_informations(logger):
                                 pid = int(row_df['pid'].values[0])
                                 crawl_url = str(row_df['crawl_url'].values[0])
                                 detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
-            else:
-                ### 버튼이 눌리지 않았을 경우
-                result_df = pd.DataFrame()
-                st.write("No search term applied")
+                seperator = 12
+
+        with charts_tab:
+            ### 데이터를 시각화하기 위한 차트
             
-        else:
-            seperator = 11
-            st.session_state['job_info_filtered'] = False
-            st.subheader("전체 데이터")
-            #filtered_visualized_df = df.loc[:, visible_columns]
-            result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state)
+            ### select type of chart to show
+            chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
+            seperator = 13
             
-            if result_df is None or result_df.empty:
-                result_df = pd.DataFrame()
-                st.write("No result found.")
-            else:
-                ### 필터가 없는 경우 전체 데이터프레임에서 특정 열만 선택해 시각화
-                for index, row in result_df.iterrows():
-                    col1, col2 = st.columns([10,1])
-                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                    row_df = pd.DataFrame(row).transpose()
-                    with col1:
-                        st.table(data=sliced_row_df.transpose())
-                    with col2:
-                        detail_btn = st.button(f"자세히 보기", key=index)
-                        if detail_btn:
-                            logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
-                            pid = int(row_df['pid'].values[0])
-                            crawl_url = str(row_df['crawl_url'].values[0])
-                            detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
-            seperator = 12
-        
-        ### 데이터를 시각화하기 위한 차트
-        
-        ### select type of chart to show
-        chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
-        seperator = 13
-        
-        ### convert stacks to df to visualize counts
-        dev_stacks = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values",database=config.get('DATABASE'), table=config.get('TABLE'), column="dev_stacks",is_stacked=True)
-        stack_counts = Counter(dev_stacks)
-        seperator = 14
-        
-        ### col1 = selected chart, col2 = df of tech stacks with ['stack name', 'count of stacks'] as columns
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            seperator = 15
-            if chart_type == "Pie Chart":
-                plot_pie_chart(stack_counts, logger)
-            elif chart_type == "Donut Chart":
-                plot_donut_chart(stack_counts, logger)
-            elif chart_type == "Bar Chart":
-                plot_bar_chart(stack_counts, logger)
-            elif chart_type == "Horizontal Bar Chart":
-                plot_horizontal_bar_chart(stack_counts, logger)
-            elif chart_type == "Histogram":
-                plot_histogram(stack_counts, logger)
-        with col2:
-            seperator = 16
-            st.subheader("Tech Stack List")
-            stack_df = pd.DataFrame(stack_counts.items(), columns=['Stack', 'Count'])
-            logger.log(f"action:load, element:tech_stacks_dataframe",flag=4, name=method_name)
-            st.dataframe(stack_df)
+            ### convert stacks to df to visualize counts
+            dev_stacks = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values",database=config.get('DATABASE'), table=config.get('TABLE'), column="dev_stacks",is_stacked=True)
+            stack_counts = Counter(dev_stacks)
+            seperator = 14
+            
+            ### col1 = selected chart, col2 = df of tech stacks with ['stack name', 'count of stacks'] as columns
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                seperator = 15
+                if chart_type == "Pie Chart":
+                    plot_pie_chart(stack_counts, logger)
+                elif chart_type == "Donut Chart":
+                    plot_donut_chart(stack_counts, logger)
+                elif chart_type == "Bar Chart":
+                    plot_bar_chart(stack_counts, logger)
+                elif chart_type == "Horizontal Bar Chart":
+                    plot_horizontal_bar_chart(stack_counts, logger)
+                elif chart_type == "Histogram":
+                    plot_histogram(stack_counts, logger)
+            with col2:
+                seperator = 16
+                st.subheader("Tech Stack List")
+                stack_df = pd.DataFrame(stack_counts.items(), columns=['Stack', 'Count'])
+                logger.log(f"action:load, element:tech_stacks_dataframe",flag=4, name=method_name)
+                st.dataframe(stack_df)
         
     except Exception as e:
         logger.log(f"Exception occurred while rendering job informations at #{seperator}: {e}", flag=1, name=method_name)
