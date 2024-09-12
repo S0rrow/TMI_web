@@ -333,7 +333,7 @@ def display_job_informations(logger):
                     search_result_state = st.subheader("검색 결과")
                 with col2:
                     job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
-                
+                    logger.log(f"action:load, element:job_infos_view_count_slider", flag=4, name=method_name)
                 if st.session_state.get('job_info_filtered', False):
                     ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
                     filtered_row_count = get_table_row_counts(logger, endpoint_row_count, database, table, current_filter) # total number of rows
@@ -343,6 +343,7 @@ def display_job_informations(logger):
                     job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
                     for index in range(num_pages):
                         with job_infos_view_tabs[index]:
+                            logger.log(f"action:load, element:job_infos_view_tabs_{index}", flag=4, name=method_name)
                             # 시작점
                             offset = index * job_infos_view_count
                             # row를 몇개까지 출력할지
