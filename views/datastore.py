@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json, requests, ast, base64
-import matplotlib.pyplot as plt
-from collections import Counter
+import json, requests
 from datetime import datetime
 from .utils import Logger
 

@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
-import json, requests, ast, base64
+import json
 import matplotlib.pyplot as plt
 from collections import Counter
-from datetime import datetime
 from .utils import Logger
 from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, get_stacked_columns
-from typing import Tuple
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
@@ -17,8 +15,9 @@ def detail(logger:Logger, config, pid, crawl_url):
         database = config.get('DATABASE')
         query = f"SELECT * FROM your_table WHERE pid = {pid} AND crawl_url = '{crawl_url}';"
         row_df = call_dataframe(logger, endpoint=f"{url}/query", database=database, query=query)
-        
+        st.dataframe(row_df, use_container_width=True)
     except Exception as e:
+        st.write(f"Exception:{e}")
         logger.log(f"Exception occurred while getting detailed dataframe from api: {e}", flag=1, name=method_name)
 
 ### render charts
@@ -97,7 +96,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
             return latest_search_term
         # api에서 stack형 column의 목록을 호출
         stacked_columns = get_stacked_columns(_logger=logger, endpoint=f"{config.get('API_URL')}/stacked_columns", database=config.get('DATABASE'), table=config.get('TABLE'))
-        logger.log(f"stacked_column_list:{stacked_columns}", flag=0, name=method_name)
+        # logger.log(f"stacked_column_list:{stacked_columns}", flag=0, name=method_name)
         # api에서 모든 column의 목록을 호출
         total_columns = get_column_names(_logger=logger, endpoint=f"{config.get('API_URL')}/columns", database=config.get('DATABASE'), table=config.get('TABLE'))
         columns = st.columns(num_visible_columns)  # Create column containers
@@ -106,7 +105,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
         for column in total_columns:
             with columns[i]:
                 is_stacked = column in stacked_columns
-                logger.log(f"column name:{column}, is_stacked:{is_stacked}",flag=0, name=method_name)
+                # logger.log(f"column name:{column}, is_stacked:{is_stacked}",flag=0, name=method_name)
                 unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), column=column,is_stacked=is_stacked)
                 
                 seperator = 4
@@ -114,7 +113,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
                     default_filter = latest_search_term.get(column, [])
                 else:
                     default_filter = []
-                
+                logger.log(f"default_filter:{default_filter}", flag=0, name=method_name)
                 selected_stacks = st.multiselect(f"{column}", unique_values, default=default_filter)
                 
                 if selected_stacks:
@@ -127,7 +126,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
 
     except Exception as e:
         logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
-        return None, latest_search_term
+        return latest_search_term
 
 def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtered:bool, data_load_state)->pd.DataFrame:
     '''
@@ -166,6 +165,7 @@ def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtere
         data_load_state.text("Data loaded from st.cached_data")
         return df
     except Exception as e:
+        data_load_state.text(f"Failed to load data: {e}")
         logger.log(f"Excpetion occurred while generating dataframe: {e}", flag=1, name=method_name)
         return None
 
@@ -289,9 +289,10 @@ def display_job_informations(logger):
             # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
             search_result_state = st.subheader("검색 결과")
             if st.session_state.get('job_info_filtered', False):
+                ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
+                seperator = 10
                 result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state)
                 
-                ### 최종적으로 필터링된 데이터프레임 시각화
                 for index, row in result_df.iterrows():
                     col1, col2 = st.columns([10,1])
                     sliced_row_df = pd.DataFrame(row.loc[visible_columns])
@@ -303,11 +304,12 @@ def display_job_informations(logger):
                         if detail_btn:
                             detail(row_df, logger)
             else:
+                ### 버튼이 눌리지 않았을 경우
                 result_df = pd.DataFrame()
                 st.write("No search term applied")
             
         else:
-            seperator = 10
+            seperator = 11
             st.session_state['job_info_filtered'] = False
             st.subheader("전체 데이터")
             #filtered_visualized_df = df.loc[:, visible_columns]
@@ -324,22 +326,23 @@ def display_job_informations(logger):
                     detail_btn = st.button(f"자세히 보기", key=index)
                     if detail_btn:
                         detail(row_df, logger)
-            seperator = 11
+            seperator = 12
         
         ### 데이터를 시각화하기 위한 차트
         
         ### select type of chart to show
         chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
-        seperator = 12
+        seperator = 13
         
         ### convert stacks to df to visualize counts
         dev_stacks = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values",database=config.get('DATABASE'), table=config.get('TABLE'), column="dev_stacks",is_stacked=True)
         stack_counts = Counter(dev_stacks)
-        seperator = 13
+        seperator = 14
         
         ### col1 = selected chart, col2 = df of tech stacks with ['stack name', 'count of stacks'] as columns
         col1, col2 = st.columns([2, 1])
         with col1:
+            seperator = 15
             if chart_type == "Pie Chart":
                 plot_pie_chart(stack_counts, logger)
             elif chart_type == "Donut Chart":
@@ -351,10 +354,11 @@ def display_job_informations(logger):
             elif chart_type == "Histogram":
                 plot_histogram(stack_counts, logger)
         with col2:
+            seperator = 16
             st.subheader("Tech Stack List")
             stack_df = pd.DataFrame(stack_counts.items(), columns=['Stack', 'Count'])
             logger.log(f"action:load, element:tech_stacks_dataframe",flag=4, name=method_name)
             st.dataframe(stack_df)
-        seperator = 14
+        
     except Exception as e:
         logger.log(f"Exception occurred while rendering job informations at #{seperator}: {e}", flag=1, name=method_name)
