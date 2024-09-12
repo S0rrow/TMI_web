@@ -144,9 +144,9 @@ def generate_dataframe(logger, config, search_terms:dict, is_filtered:bool, data
     conditions = []
     for column, values in search_terms.items():
         # Escape single quotes in values
-        values = [f"'{v.replace("'", "''")}'" for v in values]
+        escaped_values = [f"'{value.replace('\'', '\'\'')}'" for value in values]
         # Create a condition for each column
-        conditions.append(f"{column} IN ({', '.join(values)})")
+        conditions.append(f"{column} IN ({', '.join(escaped_values)})")
     
     # join all conditions with AND statement
     query += ' AND '.join(conditions)
