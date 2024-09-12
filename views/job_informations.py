@@ -24,8 +24,8 @@ def detail(logger:Logger, config:dict, pid:int, crawl_url:str):
         with col1:
             st.logo(f"{parent_path}/../images/horizontal.png", icon_image=f"{parent_path}/../images/logo.png")
         with col2:
-            st.header(f"{row_df['job_title']}")
-            st.subheader(f"{row_df['company_name']}")
+            st.header(f"{row_df['job_title'].values[0]}")
+            st.subheader(f"{row_df['company_name'].values[0]}")
         st.subheader(f"직무 유형")
         job_categories = get_elements_from_stacked_element(logger, row_df, 'job_categories')
         for job_category in job_categories:
