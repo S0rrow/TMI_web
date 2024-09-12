@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json
+import json, math
 import matplotlib.pyplot as plt
 from collections import Counter
 from .utils import Logger
@@ -200,10 +200,22 @@ def display_job_informations(logger):
         endpoint_columns = f"{url}/columns"
         total_columns = get_column_names(logger, endpoint_columns, database, table)
         endpoint_row_count = f"{url}/row_count"
-        column_length = get_table_row_counts(logger, endpoint_row_count, database, table)
         seperator = 2
         search_tab, charts_tab = st.tabs(['Search', 'Charts'])
-        with search_tab:    
+        with search_tab:
+            ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
+            total_row_count = get_table_row_counts(logger, endpoint_row_count, database, table) # total number of rows
+            job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
+            num_pages = math.ceil(total_row_count / job_infos_view_count)
+
+            # 페이지 탭 생성
+            job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
+            
+            for index in range(num_pages):
+                start_row = index * job_infos_view_count
+                end_row = min(start_row + job_infos_view_count, total_row_count)
+                st.write(f"start:{start_row}, end_row:{end_row}")
+
             ### 검색 기록 받아오기
             endpoint_history = f"{url}/history"
             search_history = get_search_history(endpoint_history, logger)
