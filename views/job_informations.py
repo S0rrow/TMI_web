@@ -204,8 +204,10 @@ def display_job_informations(logger):
             checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
         default_visualized_column_list = {}
         columns_to_visualize = {}
+        seperator = 4
         
         ### default를 보여주도록 설정되어 있을 경우
+        logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
         for column in total_columns:
             if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
                 default_visualized_column_list[column] = True
@@ -214,7 +216,8 @@ def display_job_informations(logger):
                 default_visualized_column_list[column] = False
                 columns_to_visualize[column] = False
         show_default_columns = st.session_state.get('show_default_columns', False)
-
+        seperator = 5
+        
         ### 선택을 수정한 기록이 있을 경우
         if 'column_list_to_visualize' not in st.session_state:
             st.session_state['column_list_to_visualize'] = columns_to_visualize
@@ -290,12 +293,12 @@ def display_job_informations(logger):
                         detail_btn = st.button(f"자세히 보기", key=index)
                         if detail_btn:
                             detail(row_df, logger)
-                seperator = 10
             else:
                 result_df = pd.DataFrame()
                 st.write("No search term applied")
             
         else:
+            seperator = 10
             st.session_state['job_info_filtered'] = False
             st.subheader("전체 데이터")
             #filtered_visualized_df = df.loc[:, visible_columns]
