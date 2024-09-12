@@ -10,6 +10,7 @@ from .datastore import call_dataframe, get_search_history, save_search_history, 
 @st.dialog("Detailed Information", width="large")
 def detail(logger:Logger, config, pid, crawl_url):
     method_name = __name__ + ".detail"
+    logger.log(f"action:load, element:detail_page_{pid}",flag=4, name=method_name)
     try:
         url = config.get('API_URL')
         database = config.get('DATABASE')
@@ -300,12 +301,13 @@ def display_job_informations(logger):
                     for index, row in result_df.iterrows():
                         col1, col2 = st.columns([10,1])
                         sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                        row_df = pd.DataFrame(row)
+                        row_df = pd.DataFrame(row).transpose()
                         with col1:
                             st.table(data=sliced_row_df.transpose())
                         with col2:
                             detail_btn = st.button(f"자세히 보기", key=index)
                             if detail_btn:
+                                logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
                                 detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             else:
                 ### 버튼이 눌리지 않았을 경우
@@ -327,12 +329,13 @@ def display_job_informations(logger):
                 for index, row in result_df.iterrows():
                     col1, col2 = st.columns([10,1])
                     sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                    row_df = pd.DataFrame(row)
+                    row_df = pd.DataFrame(row).transpose()
                     with col1:
                         st.table(data=sliced_row_df.transpose())
                     with col2:
                         detail_btn = st.button(f"자세히 보기", key=index)
                         if detail_btn:
+                            logger.log(f"action:click, element:detail_button_{index}",flag=4, name=method_name)
                             detail(logger=logger, config=config, pid=row_df['pid'], crawl_url=row_df['crawl_url'])
             seperator = 12
         
