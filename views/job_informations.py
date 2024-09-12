@@ -109,7 +109,7 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
                 unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), column=column,is_stacked=is_stacked)
                 
                 seperator = 4
-                if st.session_state['apply_last_filter']:
+                if st.session_state.get('apply_last_filter', False):
                     default_filter = latest_search_term.get(column, [])
                 else:
                     default_filter = []
@@ -302,7 +302,7 @@ def display_job_informations(logger):
                     with col2:
                         detail_btn = st.button(f"자세히 보기", key=index)
                         if detail_btn:
-                            detail(row_df, logger)
+                            detail(row_df, logger, row_df['pid'], row_df['crawl_url'])
             else:
                 ### 버튼이 눌리지 않았을 경우
                 result_df = pd.DataFrame()
@@ -325,7 +325,7 @@ def display_job_informations(logger):
                 with col2:
                     detail_btn = st.button(f"자세히 보기", key=index)
                     if detail_btn:
-                        detail(row_df, logger)
+                        detail(row_df, logger, row_df['pid'], row_df['crawl_url'])
             seperator = 12
         
         ### 데이터를 시각화하기 위한 차트
