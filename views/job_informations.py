@@ -4,7 +4,7 @@ import json, math, os
 import matplotlib.pyplot as plt
 from collections import Counter
 from .utils import Logger
-from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, get_stacked_columns, get_elements_from_stacked_element
+from .datastore import call_dataframe, get_search_history, save_search_history, load_config, get_unique_column_values, get_column_names, get_table_row_counts, call_stacked_columns, get_elements_from_stacked_element, get_dev_stacks
 
 ### dialog
 @st.dialog("Detailed Information", width="large")
@@ -50,8 +50,7 @@ def detail(logger:Logger, config:dict, pid:int, crawl_url:str):
         job_prefers = get_elements_from_stacked_element(logger, row_df, 'job_prefers')
         for job_prefer in job_prefers:
             st.markdown(f"- {job_prefer}")
-        
-        
+
     except Exception as e:
         st.write(f"Exception:{e}")
         logger.log(f"Exception occurred while getting detailed dataframe from api: {e}", flag=1, name=method_name)
@@ -102,15 +101,15 @@ def plot_horizontal_bar_chart(stack_counts,logger):
     logger.log(f"action:load, element:horizontal_bar_chart", flag=4, name=method_name)
 
 ### render filters if user wants to filter data and search specific records
-def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visualize:dict, config) -> dict:
+def display_filters(logger:Logger, search_history:pd.DataFrame, config:dict) -> dict:
     '''
-    Generate filters for each column in the dataframe.
-    - df: dataframe to filter
+    Generate filters for each column in the dataframe, and return filter.
+    - logger: logger for logging events
     - search_history: dataframe to store search history
+    - column_to_visualize: dictionary which stores column names as keys and boolean values as values for determining which column to show
+    - config: configurations loaded from config file
     '''
     method_name = __name__ + ".display_filters"
-    visible_columns = [col for col, show in columns_to_visualize.items() if show]
-    num_visible_columns = len(visible_columns)  # True인 열의 개수 저장
     seperator = -1
     # Get the latest search term for the current session
     if search_history is not None and not search_history.empty:
@@ -121,49 +120,32 @@ def display_filters(logger:Logger, search_history:pd.DataFrame, columns_to_visua
             latest_search_term = json.loads(search_history.iloc[-1]['search_term'])
     else:
         latest_search_term = {}
-    seperator = 1
+    
     try:
-        # Divide columns into equal widths to display filters horizontally
-        #num_columns = len(df.columns)  # Number of columns to filter
-        # logger.log(f"num_visible_columns:{num_visible_columns}", flag=0, name=method_name)
-        if num_visible_columns <= 0:
-            logger.log(f"No columns to show", flag=0, name=method_name)
-            st.write("No columns selected")
-            return latest_search_term
-        # api에서 stack형 column의 목록을 호출
-        stacked_columns = get_stacked_columns(_logger=logger, endpoint=f"{config.get('API_URL')}/stacked_columns", database=config.get('DATABASE'), table=config.get('TABLE'))
-        # logger.log(f"stacked_column_list:{stacked_columns}", flag=0, name=method_name)
-        # api에서 모든 column의 목록을 호출
-        total_columns = get_column_names(_logger=logger, endpoint=f"{config.get('API_URL')}/columns", database=config.get('DATABASE'), table=config.get('TABLE'))
-        columns = st.columns(num_visible_columns)  # Create column containers
-        i = 0
-        seperator = 3
-        for column in visible_columns:
-            with columns[i]:
-                is_stacked = column in stacked_columns
-                # logger.log(f"column name:{column}, is_stacked:{is_stacked}",flag=0, name=method_name)
-                unique_values = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values", database=config.get('DATABASE'), table=config.get('TABLE'), column=column,is_stacked=is_stacked)
-                
-                seperator = 4
-                if st.session_state.get('apply_last_filter', False):
-                    default_filter = latest_search_term.get(column, [])
-                else:
-                    default_filter = []
-                #logger.log(f"default_filter:{default_filter}", flag=0, name=method_name)
-                selected_stacks = st.multiselect(f"{column}", unique_values, default=default_filter)
-                
-                if selected_stacks:
-                    latest_search_term[column] = selected_stacks
-                if i < num_visible_columns:
-                    i += 1
-        seperator = 5
-        logger.log(f"action:load, element:search_filters", flag=4, name=method_name)
+        filter_keys = {
+            'search_keyword':"검색 키워드",
+            'company_name':"회사 이름",
+            'job_title':"직무 이름",
+            'required_career':"경력 여부",
+            'start_date':"공고 시작일",
+            'end_date':"공고 종료일",
+            'dev_stack':"기술 스택",
+        }
+        st.write(filter_keys['search_keyword'])
+        search_keyword = st.text_input()
+        st.write(filter_keys['company_name'])
+        
+        company_name = st.multiselect(filter_keys['company_name'], )
+        
+        # selected_stacks = st.multiselect(f"{column}", unique_values, default=default_filter)
+        
         return latest_search_term
 
     except Exception as e:
         logger.log(f"Exception occurred while displaying filters at seperator #{seperator}: {e}", flag=1, name=method_name)
         return latest_search_term
 
+### final dataframe
 def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtered:bool, limit:int, offset:int, data_load_state)->pd.DataFrame:
     '''
         load final dataframe given from conditions
@@ -206,6 +188,62 @@ def generate_dataframe(logger:Logger, config:dict, search_terms:dict, is_filtere
         logger.log(f"Excpetion occurred while generating dataframe: {e}", flag=1, name=method_name)
         return None
 
+### pagination
+def display_paginated_dataframe(logger:Logger, config:dict, row_count:int, rows_per_page:int, is_filtered:bool, search_terms:dict, visible_columns:list, data_load_state):
+    '''
+        display final pagination on streamlit
+        arguments:
+        - logger: Logger for logging
+        - config: configuration dictionary
+        - row_count: total count of row
+        - rows_per_page: rows to show per page
+        - is_filtered: indicator for whether dataframe to generate is filtered or not
+        - search_terms: filter for dataframe
+        - visible_columns: columns to show
+        - data_load_state: streamlit widget to indicate data load state
+    '''
+    method_name = __name__ + ".display_paginated_dataframe"
+    
+    try:
+        num_pages = math.ceil(row_count / rows_per_page)
+        if not st.session_state.get('current_page',False):
+            st.session_state['current_page'] = 0
+        
+        page_list = [f"{i+1}" for i in range(num_pages)]
+        
+        job_infos_view_tabs = st.tabs(page_list)
+        for index in range(num_pages):
+            st.session_state.current_page = index
+            with job_infos_view_tabs[st.session_state.current_page]:
+                logger.log(f"action:load, element:job_infos_view_tabs_{st.session_state.current_page}", flag=4, name=method_name)
+                # 시작점
+                offset = st.session_state.current_page * rows_per_page
+                # row를 몇개까지 출력할지
+                limit = rows_per_page if (offset + rows_per_page) <= row_count else row_count - offset
+                ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
+                seperator = 10
+                result_df = generate_dataframe(logger, config, search_terms=search_terms, is_filtered=is_filtered, data_load_state=data_load_state, limit=limit, offset=offset)
+                if result_df is None or result_df.empty:
+                    result_df = pd.DataFrame()
+                    st.write("No result found.")
+                else:
+                    for row_index, row in result_df.iterrows():
+                        row_container = st.container(border=True)
+                        with row_container:
+                            col1, col2 = st.columns([10,1])
+                            sliced_row_df = pd.DataFrame(row.loc[visible_columns])
+                            row_df = pd.DataFrame(row).transpose()
+                            with col1:
+                                st.table(data=sliced_row_df.transpose().reset_index(drop=True))
+                            with col2:
+                                detail_btn = st.button(f"자세히 보기", key=row_index+offset)
+                                if detail_btn:
+                                    logger.log(f"action:click, element:detail_button_{row_index}",flag=4, name=method_name)
+                                    pid = int(row_df['pid'].values[0])
+                                    crawl_url = str(row_df['crawl_url'].values[0])
+                                    detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
+    except Exception as e:
+        logger.log(f"Exception occurred while paginating final dataframe: {e}", flag=1, name=method_name)
 ### page display
 def display_job_informations(logger):
     '''
@@ -238,144 +276,29 @@ def display_job_informations(logger):
         search_tab, charts_tab = st.tabs(['Search', 'Charts'])
         with search_tab:
             logger.log(f"action:load, element:search_tab",flag=4, name=method_name)
+            
             ### 검색 기록 받아오기
             endpoint_history = f"{url}/history"
             search_history = get_search_history(endpoint_history, logger)
             if search_history is None or search_history.empty:
                 search_history = pd.DataFrame()
             seperator = 3
+            top_col1, top_col2 = st.columns([1, 9])
             
-            top_col1, top_col2 = st.columns(2)
             ### dataframe을 보여줄 때 어떤 column을 보여줄지 선택하기 위한 expander
             with top_col1:
-                checkbox_expander = st.expander("표시할 열(Column)을 선택하세요")
+                search_filter_expander = st.expander("검색 옵션 표시 :material/search:")
                 logger.log(f"action:load, element:checkbox_expander",flag=4, name=method_name)
-            default_visualized_column_list = {}
-            columns_to_visualize = {}
             seperator = 4
-            
-            ### default를 보여주도록 설정되어 있을 경우
-            # logger.log(f"total_columns:{total_columns}",flag=0,name=method_name)
-            for column in total_columns:
-                if column in ['job_title', 'job_categories', 'end_date', 'crawl_domain', 'company_name', 'start_date']:
-                    default_visualized_column_list[column] = True
-                    columns_to_visualize[column] = True
-                else:
-                    default_visualized_column_list[column] = False
-                    columns_to_visualize[column] = False
-            show_default_columns = st.session_state.get('show_default_columns', False)
-            seperator = 5
-            
-            ### 선택을 수정한 기록이 있을 경우
-            if 'column_list_to_visualize' not in st.session_state:
-                st.session_state['column_list_to_visualize'] = columns_to_visualize
 
-            with checkbox_expander:
-                ### expander를 실제로 열었을 경우 각 checkbox들이 선택되면 값을 True로 변경.
-                logger.log(f"action:click, element:checkbox_expander",flag=4, name=method_name)
-                if show_default_columns:
-                    for column in total_columns:
-                        value = default_visualized_column_list[column]
-                        column_checkbox = st.checkbox(f"{column}", value=value, key=column)
-                        if column_checkbox:
-                            st.session_state['column_list_to_visualize'][column] = True
-                        else:
-                            st.session_state['column_list_to_visualize'][column] = False
-                else:
-                    for column in total_columns:
-                        if st.checkbox(f"{column}", value=True):
-                            st.session_state['column_list_to_visualize'][column] = True
+            with search_filter_expander:
+                ### expander를 열 경우, filter를 생성해 시각화
+                display_filters(logger=logger, search_history=search_history, config=config)
+                
             
             ### 필터 옵션 표시 여부
             with top_col2:
-                show_filters = st.checkbox("필터 옵션 표시", value=False)
-                logger.log(f"action:load, element:checkbox_enable_search_filters",flag=4, name=method_name)
-            seperator = 6
-            
-            visible_columns = [col for col, show in st.session_state['column_list_to_visualize'].items() if show]
-            
-            if show_filters:
-                ### 필터를 보여주도록 선택한 경우
-                logger.log(f"action:click, element:checkbox_enable_search_filters",flag=4, name=method_name)
-                
-                current_filter = display_filters(logger, search_history, st.session_state['column_list_to_visualize'], config)
-                filter_btn = st.button("필터 적용")
-                logger.log(f"action:load, element:apply_filter_button",flag=4, name=method_name)
-                reset_filter_btn = st.button("필터 초기화")
-                logger.log(f"action:load, element:reset_filter_button",flag=4, name=method_name)
-                seperator = 7
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    if filter_btn:
-                        logger.log(f"action:click, element:apply_filter_button",flag=4, name=method_name)
-                        st.session_state['job_info_filtered'] = True
-                        # 필터 로그 저장
-                        save_history_response = save_search_history(endpoint_history, current_filter, logger)
-                        if save_history_response.status_code == 200 and save_history_response.json().get("status") == "success":
-                            st.success("필터가 저장되었습니다.")
-                            st.session_state['apply_last_filter'] = True
-                        else:
-                            st.error(f"필터 저장에 실패했습니다. ({save_history_response.status_code})")
-                            st.session_state['apply_last_filter'] = False
-                        seperator = 8
-                with col2:
-                    if reset_filter_btn:
-                        st.session_state['job_info_filtered'] = False
-                        logger.log(f"action:click, element:reset_filter_button",flag=4, name=method_name)
-                        st.session_state['apply_last_filter'] = False
-                        st.success("필터가 초기화되었습니다.")
-                        st.rerun()
-                seperator = 9
-
-                # 필터링된 데이터프레임 표시. 단, filter_btn이 눌리지 않았을 때는 이전의 df 유지
-                col1, col2 = st.columns([8,2])
-                with col1:
-                    search_result_state = st.subheader("검색 결과")
-                with col2:
-                    job_infos_view_count = st.select_slider("한 페이지에 보려는 공고의 수",options=[10,25,50,100]) # number of rows to show in each page, default = 10
-                    logger.log(f"action:load, element:job_infos_view_count_slider", flag=4, name=method_name)
-                if st.session_state.get('job_info_filtered', False):
-                    ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
-                    filtered_row_count = get_table_row_counts(logger, endpoint_row_count, database, table, current_filter) # total number of rows
-                    num_pages = math.ceil(filtered_row_count / job_infos_view_count)
-
-                    # 페이지 탭 생성
-                    job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
-                    for index in range(num_pages):
-                        with job_infos_view_tabs[index]:
-                            logger.log(f"action:load, element:job_infos_view_tabs_{index}", flag=4, name=method_name)
-                            # 시작점
-                            offset = index * job_infos_view_count
-                            # row를 몇개까지 출력할지
-                            limit = job_infos_view_count if (offset + job_infos_view_count) <= filtered_row_count else filtered_row_count - offset
-                            ### 버튼이 눌렸을 경우, 최종적으로 필터링된 데이터프레임 시각화
-                            seperator = 10
-                            result_df = generate_dataframe(logger, config, search_terms=current_filter, is_filtered=True, data_load_state=data_load_state, limit=limit, offset=offset)
-                            if result_df is None or result_df.empty:
-                                result_df = pd.DataFrame()
-                                st.write("No result found.")
-                            else:
-                                for row_index, row in result_df.iterrows():
-                                    col1, col2 = st.columns([10,1])
-                                    sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                                    row_df = pd.DataFrame(row).transpose()
-                                    with col1:
-                                        st.table(data=sliced_row_df.transpose().reset_index(drop=True))
-                                    with col2:
-                                        detail_btn = st.button(f"자세히 보기", key=row_index+offset)
-                                        if detail_btn:
-                                            logger.log(f"action:click, element:detail_button_{row_index}",flag=4, name=method_name)
-                                            pid = int(row_df['pid'].values[0])
-                                            crawl_url = str(row_df['crawl_url'].values[0])
-                                            detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
-                else:
-                    ### 버튼이 눌리지 않았을 경우
-                    result_df = pd.DataFrame()
-                    st.write("No search term applied")
-                
-            else:
-                seperator = 11
-                st.session_state['job_info_filtered'] = False
+                # st.session_state['job_info_filtered'] = False
                 col1, col2 = st.columns([8,2])
                 with col1:
                     st.subheader("전체 데이터")
@@ -384,36 +307,11 @@ def display_job_informations(logger):
                 
                 ### 총 row 수를 한 페이지에 특정 수로만 보여줌. 각각 tab으로 분리.
                 total_row_count = get_table_row_counts(logger, endpoint_row_count, database, table) # total number of rows
-                num_pages = math.ceil(total_row_count / job_infos_view_count)
-
-                # 페이지 탭 생성
-                job_infos_view_tabs = st.tabs([f"Page {i+1}" for i in range(num_pages)])
                 
-                for index in range(num_pages):
-                    with job_infos_view_tabs[index]:
-                        offset = index * job_infos_view_count
-                        limit = job_infos_view_count if (offset + job_infos_view_count) <= total_row_count else total_row_count - offset
-                        result_df = generate_dataframe(logger, config=config, search_terms=None, is_filtered=False, data_load_state=data_load_state, limit=limit, offset=offset)
-                        
-                        if result_df is None or result_df.empty:
-                            result_df = pd.DataFrame()
-                            st.write("No result found.")
-                        else:
-                            ### 전체 데이터프레임에서 특정 열만 선택해 시각화
-                            for row_index, row in result_df.iterrows():
-                                col1, col2 = st.columns([10,1])
-                                sliced_row_df = pd.DataFrame(row.loc[visible_columns])
-                                row_df = pd.DataFrame(row).transpose()
-                                with col1:
-                                    st.table(data=sliced_row_df.transpose().reset_index(drop=True))
-                                with col2:
-                                    detail_btn = st.button(f"자세히 보기", key=row_index+offset)
-                                    if detail_btn:
-                                        logger.log(f"action:click, element:detail_button_{row_index}",flag=4, name=method_name)
-                                        pid = int(row_df['pid'].values[0])
-                                        crawl_url = str(row_df['crawl_url'].values[0])
-                                        detail(logger=logger, config=config, pid=pid, crawl_url=crawl_url)
-                        seperator = 12
+                # 페이지 탭 생성
+                display_paginated_dataframe(logger=logger, config=config, row_count=total_row_count, rows_per_page=job_infos_view_count, is_filtered=False, search_terms=None, visible_columns=visible_columns, data_load_state=data_load_state)
+                
+                seperator = 12
 
         with charts_tab:
             ### 데이터를 시각화하기 위한 차트
@@ -424,7 +322,7 @@ def display_job_informations(logger):
             seperator = 13
             
             ### convert stacks to df to visualize counts
-            dev_stacks = get_unique_column_values(logger, endpoint=f"{config.get('API_URL')}/unique_values",database=config.get('DATABASE'), table=config.get('TABLE'), column="dev_stacks",is_stacked=True)
+            dev_stacks = get_dev_stacks(_logger=logger, endpoint=f"{config.get('API_URL')}/dev_stacks", database=config.get('DATABASE'))
             stack_counts = Counter(dev_stacks)
             seperator = 14
             

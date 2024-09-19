@@ -134,6 +134,16 @@ def call_dataframe(_logger, endpoint:str, database:str, query:str)->pd.DataFrame
         _logger.log(f"Exception occurred while getting dataframe: {e}", flag=1, name=method_name)
         return None
     
+def get_dev_stacks(_logger, endpoint:str, database:str)->dict:
+    '''
+        request dev stacks as {did:count} form.
+        - endpoint: API endpoint
+        - database: name of database to use
+        - table: name of table to use
+        - column: name of column to parse.
+    '''
+    return {}
+
 ### retrieve unique values from given column
 def get_unique_column_values(_logger, endpoint:str, database:str, table:str, column:str, is_stacked:bool)->list:
     '''
@@ -204,8 +214,22 @@ def get_table_row_counts(_logger, endpoint:str, database:str, table:str, search_
     except Exception as e:
         _logger.log(f"Exception occurred while counting rows from table {table}: {e}", flag=1, name=method_name)
         return None
-    
-def get_stacked_columns(_logger, endpoint:str, database:str, table:str)->list:
+
+def get_dev_stacks(_logger, endpoint:str, database:str)->list:
+    method_name = __name__ + ".get_dev_stacks"
+    try:
+        response = requests.get(endpoint, params={"database":database})
+        if response.status_code == 200 and response.text:
+            result = json.loads(response.text)
+            return list(result['dev_stacks'])
+        else:
+            _logger.log(f"wrong response from given endpoint: {response.status_code}",flag=1, name=method_name)
+            return None
+    except Exception as e:
+        _logger.log(f"Exception occurred while getting dev stacks: {e}", flag=1, name=method_name)
+        return None
+
+def call_stacked_columns(_logger, endpoint:str, database:str, table:str)->list:
     method_name = __name__ + ".call_stacked_columns"
     try:
         response = requests.get(endpoint, params={"database":database, "table":table})
