@@ -24,16 +24,10 @@ def detail(logger:Logger, pid:int):
         st.markdown(f"## {company_name}")
         st.markdown(f"### {job_title}")
         if len(dev_stacks) > 0:
-            if len(dev_stacks) > 8:
-                dev_stacks_to_show = dev_stacks[:8]
-                dev_stacks_to_show.append("...")
-            else:
-                dev_stacks_to_show = dev_stacks
-            dev_stack_cols = st.columns(len(dev_stacks_to_show))
-            for dindex, stack in enumerate(dev_stacks_to_show):
-                with dev_stack_cols[dindex]:
-                    with st.container(border=True):
-                        st.write(stack)
+            st.markdown(f"#### 요구 스택")
+        
+        for stack in dev_stacks:
+            st.markdown(f"- {stack}")
         date_text = ""
         if start_date:
             date_text = f"{start_date}"
