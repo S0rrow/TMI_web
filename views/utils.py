@@ -18,7 +18,7 @@ class Logger():
         self.path = path
         self.options = options
 
-    def log(self, msg:str, flag:int=None, name:str=None):  # 수정: 기본값을 None으로 변경
+    def log(self, msg:str, flag:int=0, name:str=None):  # 기본값을 0으로 변경
         '''
             Save given log messages according to level of depth as files.
             - flag: logs being printed will be saved according to level of depth given in flag
@@ -32,7 +32,7 @@ class Logger():
         options = self.options
         if not name and options.get('name', False):  # 수정: name이 None일 때만 options에서 가져옴
             name = options.get('name')
-        if not flag:
+        if not flag:  # flag가 0일 경우에도 처리
             flag = 0
         head = ["DEBUG", "ERROR", "WARN", "STATUS", "INFO"]
         utc_now = datetime.now(timezone.utc)
