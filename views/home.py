@@ -19,29 +19,36 @@ def detail(logger:Logger, pid:int):
         job_information = call_job_informations(logger, pid_list)[pid]
         job_title = job_information['job_title']
         company_name = job_information['company_name']
-        dev_stacks = job_information['dev_stacks']
-        start_date = job_information['start_date']
-        end_date = job_information['end_date']
+        dev_stacks = job_information['dev_stacks'] # list
+        start_date = job_information['start_date'] # datetime
+        end_date = job_information['end_date'] # datetime
         crawl_url = job_information['crawl_url']
-        get_date = job_information['get_date']
-        st.markdown(f"## [{company_name}]({crawl_url})")
+        get_date = job_information['get_date'] # datetime
+        required_career = job_information['required_career'] # bool
+        job_prefer = job_information['job_prefer'] # list
+        st.markdown(f"# [{company_name}]({crawl_url})")
         gd_obj = datetime.strptime(get_date, "%Y-%m-%dT%H:%M:%S")
         g_year = gd_obj.year
         g_month = gd_obj.month
         g_day = gd_obj.day
         g_hour = gd_obj.hour
         g_min = gd_obj.minute
-        st.markdown(f"- 수집일:{g_year}-{g_month}-{g_day} {g_hour}:{g_min}")
-        
-        st.markdown(f"### {job_title}")
+        st.markdown(f"공고 개시 일자:{g_year}-{g_month}-{g_day} {g_hour}:{g_min}")
+        if required_career:
+            st.markdown(f" 경력직 여부: O")
+        else:
+            st.markdown(f" 경력직 여부: X")
+        st.markdown(f"## {job_title}")
         if len(dev_stacks) > 0:
-            st.markdown(f"#### 요구 스택")
-        
+            st.markdown(f"### 요구 스택")
         for stack in dev_stacks:
             st.markdown(f"- {stack}")
-        
-        sd_text = ""
-        ed_text = ""
+        if len(job_prefer) > 0:
+            st.markdown(f"### 우대 사항")
+        for prefer in job_prefer:
+            st.markdown(f"- {prefer}")
+            
+        st.markdown(f"### 공고 모집 일자")
         if start_date:
             sd_obj = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S")
             s_year = sd_obj.year
@@ -49,8 +56,10 @@ def detail(logger:Logger, pid:int):
             s_day = sd_obj.day
             s_hour = sd_obj.hour
             s_min = sd_obj.minute
-            sd_text = f"{s_year}-{s_month}-{s_day} {s_hour}:{s_min}"
-        
+            st.markdown(f"- 모집 시작: {s_year}-{s_month}-{s_day} {s_hour}:{s_min}")
+        else:
+            st.markdown(f"- ~~모집시작:~~")
+            
         if end_date:
             ed_obj = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
             e_year = ed_obj.year
@@ -58,14 +67,14 @@ def detail(logger:Logger, pid:int):
             e_day = ed_obj.day
             e_hour = ed_obj.hour
             e_min = ed_obj.minute
-            ed_text = f"{e_year}-{e_month}-{e_day} {e_hour}:{e_min}"
-
-        st.markdown(f"""
-                    - 모집 시작: {sd_text}
-                    - 모집 마감: {ed_text}
-                    """)
-        if sd_text == "" and ed_text == "":
-            st.markdown(f"- 상시모집")
+            st.markdown(f"- 모집 마감: {e_year}-{e_month}-{e_day} {e_hour}:{e_min}")
+        else:
+            st.markdown(f"- ~~모집 마감: ~~")
+        
+        if start_date or end_date:
+            st.markdown(f"- 상시모집 여부: X")
+        else:
+            st.markdown(f"- 상시모집 여부: O")
 
     except Exception as e:
         st.write(f"Exception:{e}")
