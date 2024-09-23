@@ -35,9 +35,9 @@ def detail(logger:Logger, pid:int):
         g_min = gd_obj.minute
         st.markdown(f"공고 개시 일자:{g_year}-{g_month}-{g_day} {g_hour}:{g_min}")
         if required_career:
-            st.markdown(f" 경력직 여부: O")
+            st.markdown(f" 경력직 여부: :material/check_box:")
         else:
-            st.markdown(f" 경력직 여부: X")
+            st.markdown(f" 경력직 여부: :material/check_box_outline_blank:")
         st.markdown(f"## {job_title}")
         if len(dev_stacks) > 0:
             st.markdown(f"### 요구 스택")
@@ -56,9 +56,9 @@ def detail(logger:Logger, pid:int):
             s_day = sd_obj.day
             s_hour = sd_obj.hour
             s_min = sd_obj.minute
-            st.markdown(f"- 모집 시작: {s_year}-{s_month}-{s_day} {s_hour}:{s_min}")
+            st.markdown(f"- 시작일: {s_year}-{s_month}-{s_day} {s_hour}:{s_min}")
         else:
-            st.markdown(f"- ~~모집시작:~~")
+            st.markdown(f"- ~~시작일:~~")
             
         if end_date:
             ed_obj = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
@@ -67,14 +67,14 @@ def detail(logger:Logger, pid:int):
             e_day = ed_obj.day
             e_hour = ed_obj.hour
             e_min = ed_obj.minute
-            st.markdown(f"- 모집 마감: {e_year}-{e_month}-{e_day} {e_hour}:{e_min}")
+            st.markdown(f"- 마감일: {e_year}-{e_month}-{e_day} {e_hour}:{e_min}")
         else:
-            st.markdown(f"- ~~모집 마감: ~~")
+            st.markdown(f"- ~~마감일:~~")
         
         if start_date or end_date:
-            st.markdown(f"- 상시모집 여부: X")
+            st.markdown(f"- 상시모집 여부: :material/check_box_outline_blank:")
         else:
-            st.markdown(f"- 상시모집 여부: O")
+            st.markdown(f"- 상시모집 여부: :material/check_box:")
 
     except Exception as e:
         st.write(f"Exception:{e}")
