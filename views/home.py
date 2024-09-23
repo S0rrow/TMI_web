@@ -5,6 +5,7 @@ import json, math, os
 import matplotlib.pyplot as plt
 from collections import Counter
 from .utils import Logger
+from datetime import datetime
 from .datastore import load_config, call_pid_list, call_job_informations
 
 ### dialog
@@ -21,21 +22,50 @@ def detail(logger:Logger, pid:int):
         dev_stacks = job_information['dev_stacks']
         start_date = job_information['start_date']
         end_date = job_information['end_date']
-        st.markdown(f"## {company_name}")
+        crawl_url = job_information['crawl_url']
+        get_date = job_information['get_date']
+        st.markdown(f"## [{company_name}]({crawl_url})")
+        gd_obj = datetime.strptime(get_date, "%Y-%m-%dT%H:%M:%S")
+        g_year = gd_obj.year
+        g_month = gd_obj.month
+        g_day = gd_obj.day
+        g_hour = gd_obj.hour
+        g_min = gd_obj.minute
+        st.markdown(f"- 수집일:{g_year}-{g_month}-{g_day} {g_hour}:{g_min}")
+        
         st.markdown(f"### {job_title}")
         if len(dev_stacks) > 0:
             st.markdown(f"#### 요구 스택")
         
         for stack in dev_stacks:
             st.markdown(f"- {stack}")
-        date_text = ""
+        
+        sd_text = ""
+        ed_text = ""
         if start_date:
-            date_text = f"{start_date}"
+            sd_obj = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S")
+            s_year = sd_obj.year
+            s_month = sd_obj.month
+            s_day = sd_obj.day
+            s_hour = sd_obj.hour
+            s_min = sd_obj.minute
+            sd_text = f"{s_year}-{s_month}-{s_day} {s_hour}:{s_min}"
+        
         if end_date:
-            date_text += f" ~ {end_date}"
-        if date_text == "":
-            date_text = "상시모집"
-        st.write(date_text)
+            ed_obj = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
+            e_year = ed_obj.year
+            e_month = ed_obj.month
+            e_day = ed_obj.day
+            e_hour = ed_obj.hour
+            e_min = ed_obj.minute
+            ed_text = f"{e_year}-{e_month}-{e_day} {e_hour}:{e_min}"
+
+        st.markdown(f"""
+                    - 모집 시작: {sd_text}
+                    - 모집 마감: {ed_text}
+                    """)
+        if sd_text == "" and ed_text == "":
+            st.markdown(f"- 상시모집")
 
     except Exception as e:
         st.write(f"Exception:{e}")
@@ -99,9 +129,10 @@ def display_home_page(logger:Logger):
                     job_information = job_informations[pid]
                     job_title = job_information['job_title']
                     company_name = job_information['company_name']
-                    dev_stacks = job_information['dev_stacks']
-                    start_date = job_information['start_date']
-                    end_date = job_information['end_date']
+                    dev_stacks = job_information['dev_stacks'] # datetime
+                    start_date = job_information['start_date'] # datetime
+                    end_date = job_information['end_date'] # datetime
+                    crawl_url = job_information['crawl_url']
                     st.markdown(f"## {company_name}")
                     st.markdown(f"### {job_title}")
                     if len(dev_stacks) > 0:
@@ -116,16 +147,30 @@ def display_home_page(logger:Logger):
                                 with st.container(border=True):
                                     st.write(stack)
                     date_text = ""
+                    
                     if start_date:
-                        date_text = f"{start_date}"
+                        sd_obj = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S")
+                        s_year = sd_obj.year
+                        s_month = sd_obj.month
+                        s_day = sd_obj.day
+                        s_hour = sd_obj.hour
+                        s_min = sd_obj.minute
+                        date_text = f"{s_year}-{s_month}-{s_day} {s_hour}:{s_min}"
                     if end_date:
-                        date_text += f" ~ {end_date}"
+                        ed_obj = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
+                        e_year = ed_obj.year
+                        e_month = ed_obj.month
+                        e_day = ed_obj.day
+                        e_hour = ed_obj.hour
+                        e_min = ed_obj.minute
+                        date_text += f" ~ {e_year}-{e_month}-{e_day} {e_hour}:{e_min}"
                     if date_text == "":
                         date_text = "상시모집"
                     st.write(date_text)
                 with col2:
                     if st.button("자세히 보기", key=pid):
                         detail(logger, pid)
+                    st.link_button('공고 보기', url=crawl_url)
                 
     except Exception as e:
         logger.log(f"Exception occurred while rendering home page: {e}", flag=1, name=method_name)
