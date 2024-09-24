@@ -1,11 +1,7 @@
-import hashlib
-import os, json, base64
+import os
 import streamlit as st
-from streamlit_google_auth import Authenticate
 import views
 from views.utils import Logger
-from time import strftime, gmtime
-from datetime import datetime
 
 logger = views.Logger(options={"name":__name__})
 
