@@ -38,7 +38,7 @@ def main():
             home_btn = st.button("Home :material/home:", use_container_width=True)
             if home_btn:
                 st.session_state['current_view'] = "home"
-            chart_btn = st.button("Chart :material/analystics:", use_container_width=True)
+            chart_btn = st.button("Chart :material/analytics:", use_container_width=True)
             if chart_btn:
                 st.session_state['current_view'] = "chart"
         logger.log(f"action:load, element:sidebar", flag=4, name=method_name)
