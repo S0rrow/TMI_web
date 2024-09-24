@@ -18,7 +18,9 @@ def detail(logger:Logger, pid:int):
         dev_stacks = job_information['dev_stacks'] # list
         start_date = job_information['start_date'] # datetime
         end_date = job_information['end_date'] # datetime
-        crawl_url = job_information['crawl_url']
+        crawl_url = str(job_information['crawl_url']) # str
+        if 'programmers' in crawl_url:
+            crawl_url = crawl_url.replace('api/', '')
         get_date = job_information['get_date'] # datetime
         required_career = job_information['required_career'] # bool
         job_prefer = job_information['job_prefer'] # list
@@ -137,7 +139,10 @@ def display_home_page(logger:Logger):
                     dev_stacks = job_information['dev_stacks'] # datetime
                     start_date = job_information['start_date'] # datetime
                     end_date = job_information['end_date'] # datetime
-                    crawl_url = job_information['crawl_url']
+                    crawl_url = str(job_information['crawl_url']) # str
+                    if 'programmers' in crawl_url:
+                        crawl_url = crawl_url.replace('api/', '')
+
                     st.markdown(f"## {company_name}")
                     st.markdown(f"### {job_title}")
                     if len(dev_stacks) > 0:
