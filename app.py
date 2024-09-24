@@ -10,6 +10,9 @@ logger = views.Logger(options={"name":__name__})
 # Home button
 def on_click_home(logger:Logger):
     st.session_state['current_view'] = "home"
+    
+def on_click_chart(logger:Logger):
+    st.session_state['current_view'] = "chart"
 
 def main():
     ### initial configurations
@@ -42,6 +45,7 @@ def main():
         with st.sidebar:
             st.write("Home")
             home_btn = st.button("Home :material/home:", on_click=on_click_home(logger), use_container_width=True)
+            chart_btn = st.button("Chart :material/analystics:", on_click=on_click_chart(logger), use_container_width=True)
         logger.log(f"action:load, element:sidebar", flag=4, name=method_name)
         
         
@@ -49,6 +53,8 @@ def main():
         seperator = 4
         if st.session_state.get('current_view') == "home":
             views.display_home_page(logger)
+        elif st.session_state.get('current_view') == "chart":
+            views.display_chart_page(logger)
     
     except Exception as e:
         logger.log(f"Exception occurred at flag #{seperator}: {e}", flag=1, name=__name__)
