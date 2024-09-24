@@ -5,15 +5,6 @@ from views.utils import Logger
 
 logger = views.Logger(options={"name":__name__})
 
-### Button Callback Functions
-
-# Home button
-def on_click_home(logger:Logger):
-    st.session_state['current_view'] = "home"
-    
-def on_click_chart(logger:Logger):
-    st.session_state['current_view'] = "chart"
-
 def main():
     ### initial configurations
     seperator = -1
@@ -44,8 +35,12 @@ def main():
         seperator = 3
         with st.sidebar:
             st.write("Home")
-            home_btn = st.button("Home :material/home:", on_click=on_click_home(logger), use_container_width=True)
-            chart_btn = st.button("Chart :material/analystics:", on_click=on_click_chart(logger), use_container_width=True)
+            home_btn = st.button("Home :material/home:", use_container_width=True)
+            if home_btn:
+                st.session_state['current_view'] = "home"
+            chart_btn = st.button("Chart :material/analystics:", use_container_width=True)
+            if chart_btn:
+                st.session_state['current_view'] = "chart"
         logger.log(f"action:load, element:sidebar", flag=4, name=method_name)
         
         
@@ -57,7 +52,7 @@ def main():
             views.display_chart_page(logger)
     
     except Exception as e:
-        logger.log(f"Exception occurred at flag #{seperator}: {e}", flag=1, name=__name__)
+        logger.log(f"Exception occurred at flag #{seperator}: {e}", flag=1, name=method_name)
         
 if __name__=="__main__":
     main()
