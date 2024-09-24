@@ -51,7 +51,7 @@ def display_chart_page(logger:Logger):
     config = load_config()
     try:
         ### select type of chart to show
-        chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"))
+        chart_type = st.selectbox("Select chart type", ("Pie Chart", "Donut Chart", "Bar Chart", "Horizontal Bar Chart", "Histogram"), index=2)
         
         ### convert stacks to df to visualize counts
         dev_stacks = get_dev_stacks(_logger=logger, endpoint=f"{config.get('API_URL')}/dev_stacks", database=config.get('DATABASE')) # list
